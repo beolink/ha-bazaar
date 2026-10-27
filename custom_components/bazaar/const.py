@@ -4,7 +4,7 @@ from datetime import timedelta
 from typing import Final
 
 DOMAIN: Final = "bazaar"
-VERSION: Final = "0.1.1"
+VERSION: Final = "0.1.2"
 
 CONF_CATALOG_URL: Final = "catalog_url"
 DEFAULT_CATALOG_URL: Final = "https://beolink.github.io/ha-bazaar/catalog.json"

@@ -10,6 +10,7 @@
 const PAGE = 60;
 const MY_LINK = "https://my.home-assistant.io/redirect/hacs_repository/";
 const OTHER = new Set(["template", "python_script", "appdaemon"]);
+const FIRST_OWNER = "beolink/";
 const CHECKS = ["archived", "description", "topics", "issues", "information", "hacsjson", "license"];
 const INTEGRATION_CHECKS = [...CHECKS, "integration_manifest", "brands"];
 
@@ -527,7 +528,8 @@ class BazaarCatalog extends HTMLElement {
       created: (a, b) => time(b.created) - time(a.created),
       queue: (a, b) => (a.pending ? time(a.pending.since) : now) - (b.pending ? time(b.pending.since) : now),
     }[s.sort];
-    list = list.slice().sort((a, b) => by(a, b) || b.score - a.score);
+    const first = (e) => (words.length && e.repo.toLowerCase().startsWith(FIRST_OWNER) ? 0 : 1);
+    list = list.slice().sort((a, b) => first(a) - first(b) || by(a, b) || b.score - a.score);
     return list;
   }
 
