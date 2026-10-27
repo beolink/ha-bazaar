@@ -1,4 +1,4 @@
-// <bazaar-catalog>: search, filters and cards over catalog.json.
+// <bazaar-catalog>: search, filters and a compact list or cards over catalog.json.
 //
 // One component for both places the catalog is shown. On the website (mode
 // "site") the action is a My Home Assistant link, and HACS asks whether to add
@@ -8,6 +8,7 @@
 // website defines itself.
 
 const PAGE = 60;
+const VIEW_KEY = "bazaar-view";
 const MY_LINK = "https://my.home-assistant.io/redirect/hacs_repository/";
 const OTHER = new Set(["template", "python_script", "appdaemon"]);
 const FIRST_OWNER = "beolink/";
@@ -36,6 +37,12 @@ const STRINGS = {
     hide_flagged: "Hide red flags",
     has_release: "Has a release",
     hide_clashes: "Hide clashes",
+    view: "View",
+    compact: "Compact",
+    full: "Full",
+    clash_short: "Clash",
+    today_short: "today",
+    checks_failed: (ok, all, names) => `HACS checks ${ok} of ${all}, failed: ${names}`,
     clash_hacs: (repo) => `Same domain as ${repo} in HACS: only one of them can be installed`,
     clash_core: (domain) => `Replaces Home Assistant's built-in ${domain} integration`,
     clash_shared: (n) => (n === 1 ? "1 other repository here uses the same domain" : `${n} other repositories here use the same domain`),
@@ -122,6 +129,12 @@ const STRINGS = {
     hide_flagged: "Dölj röda flaggor",
     has_release: "Har en release",
     hide_clashes: "Dölj krockar",
+    view: "Visning",
+    compact: "Kompakt",
+    full: "Full",
+    clash_short: "Krock",
+    today_short: "i dag",
+    checks_failed: (ok, all, names) => `HACS-kontroller ${ok} av ${all}, föll: ${names}`,
     clash_hacs: (repo) => `Samma domän som ${repo} i HACS: bara den ena kan installeras`,
     clash_core: (domain) => `Ersätter Home Assistants inbyggda integration ${domain}`,
     clash_shared: (n) => (n === 1 ? "1 annat repo här använder samma domän" : `${n} andra repon här använder samma domän`),
@@ -197,6 +210,8 @@ const ICON = {
   check: "M21,7L9,19L3.5,13.5L4.91,12.09L9,16.17L19.59,5.59L21,7Z",
   cross: "M19,6.41L17.59,5L12,10.59L6.41,5L5,6.41L10.59,12L5,17.59L6.41,19L12,13.41L17.59,19L19,17.59L13.41,12L19,6.41Z",
   alert: "M13,14H11V10H13M13,18H11V16H13M1,21H23L12,2L1,21Z",
+  clash: "M21,9L17,5V8H10V10H17V13M7,11L3,15L7,19V16H14V14H7V11Z",
+  chevron: "M7.41,8.58L12,13.17L16.59,8.58L18,10L12,16L6,10L7.41,8.58Z",
   ha: "M12,3L2,12H5V20H19V12H22L12,3M12,8.5C14.34,8.5 16.46,9.43 18,10.94L16.8,12.12C15.58,10.91 13.88,10.17 12,10.17C10.12,10.17 8.42,10.91 7.2,12.12L6,10.94C7.54,9.43 9.66,8.5 12,8.5M12,11.83C13.4,11.83 14.67,12.39 15.6,13.3L14.4,14.47C13.79,13.87 12.94,13.5 12,13.5C11.06,13.5 10.21,13.87 9.6,14.47L8.4,13.3C9.33,12.39 10.6,11.83 12,11.83M12,15.17C12.94,15.17 13.7,15.91 13.7,16.83C13.7,17.75 12.94,18.5 12,18.5C11.06,18.5 10.3,17.75 10.3,16.83C10.3,15.91 11.06,15.17 12,15.17Z",
 };
 
@@ -214,6 +229,7 @@ const hue = (text) => {
 
 const STYLE = `
 :host {
+  container-type: inline-size;
   --bz-fg: var(--primary-text-color, #1d1d1f);
   --bz-muted: var(--secondary-text-color, #5f6368);
   --bz-card: var(--card-background-color, #fff);
@@ -336,6 +352,61 @@ details a { color: var(--bz-accent); overflow-wrap: anywhere; }
 .link { font-size: 13px; color: var(--bz-muted); text-decoration: none; padding: 8px 4px; }
 .link:hover { text-decoration: underline; }
 .state { font-size: 13px; color: var(--bz-ok); display: inline-flex; gap: 4px; align-items: center; }
+.grid.list { display: block; }
+.rows {
+  list-style: none; margin: 0; padding: 0;
+  background: var(--bz-card); border: 1px solid var(--bz-line); border-radius: var(--bz-radius);
+  overflow: hidden;
+}
+.rows > li + li { border-top: 1px solid var(--bz-line); }
+.rows > li.x { border-top: none; }
+.r { display: flex; align-items: center; gap: 12px; padding: 6px 12px; min-height: 50px; }
+.r:hover { background: color-mix(in srgb, var(--bz-fg) 4%, transparent); }
+.icon.sm { width: 28px; height: 28px; border-radius: 7px; font-size: 14px; }
+.c-main {
+  flex: 1; min-width: 0; display: flex; align-items: baseline; gap: 8px;
+  font: inherit; color: inherit; background: none; border: 0; padding: 6px 0; text-align: left; cursor: pointer;
+}
+.c-main .nm { font-size: 15px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: none; max-width: calc(100% - 26px); }
+.c-main .rp { font-size: 13px; color: var(--bz-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; flex: 0 1 auto; }
+.c-main .chev { width: 18px; height: 18px; fill: var(--bz-muted); flex: none; align-self: center; transition: transform 0.15s; }
+.c-main[aria-expanded="true"] .chev { transform: rotate(180deg); }
+.c-main:hover .nm { text-decoration: underline; }
+.c-sig { flex: none; width: 160px; display: flex; gap: 8px; align-items: center; overflow: hidden; }
+.sg { display: inline-flex; gap: 3px; align-items: center; font-size: 12px; color: var(--bz-muted); white-space: nowrap; }
+.sg .i { width: 16px; height: 16px; }
+.sg.high { color: var(--bz-high); }
+.sg.medium { color: var(--bz-medium); }
+.sg.ok { color: var(--bz-ok); }
+.c-cat, .c-rel, .c-upd {
+  flex: none; font-size: 13px; color: var(--bz-muted);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.c-cat { width: 92px; font-size: 12px; }
+.c-rel { width: 96px; }
+.c-upd { width: 124px; }
+.c-stars { flex: none; width: 64px; display: inline-flex; gap: 4px; align-items: center; justify-content: flex-end; font-size: 13px; color: var(--bz-muted); }
+.c-act { flex: none; width: 160px; display: flex; justify-content: flex-end; }
+.btn.sm { font-size: 13px; padding: 5px 10px; gap: 5px; }
+.btn.sm .i { width: 16px; height: 16px; }
+.btn.state { color: var(--bz-ok); }
+.x { padding: 2px 12px 14px 52px; }
+.x .card { border: none; padding: 0; background: transparent; }
+@container (max-width: 1040px) { .c-upd { display: none; } }
+@container (max-width: 900px) { .c-cat, .c-rel { display: none; } }
+@container (max-width: 640px) {
+  .r { gap: 10px; padding: 6px 10px; }
+  .c-main { flex-direction: column; align-items: flex-start; gap: 0; padding: 4px 0; }
+  .c-main .nm, .c-main .rp { max-width: 100%; }
+  .c-main .chev { display: none; }
+  .c-stars { display: none; }
+  .c-sig { width: auto; max-width: 96px; gap: 6px; }
+  .sg .t { display: none; }
+  .c-act { width: auto; }
+  .c-act .lbl { display: none; }
+  .btn.sm { padding: 7px; }
+  .x { padding-left: 10px; padding-right: 10px; }
+}
 .empty { padding: 48px 16px; text-align: center; color: var(--bz-muted); }
 .more { display: flex; justify-content: center; margin: 20px 0 8px; }
 dialog {
@@ -438,6 +509,13 @@ class BazaarCatalog extends HTMLElement {
     this._reportUrl = null;
     this._shown = PAGE;
     this._state = { q: "", cat: "all", status: "all", sort: "score", passing: false, safe: false, release: false, clashes: false };
+    this._view = "compact";
+    try {
+      if (localStorage.getItem(VIEW_KEY) === "full") this._view = "full";
+    } catch {
+      // Blocked storage: every visit starts compact.
+    }
+    this._expanded = new Set();
     this._timer = null;
     this.shadowRoot.addEventListener(
       "error",
@@ -543,20 +621,21 @@ class BazaarCatalog extends HTMLElement {
     return rtf.format(Math.round(days / 365), "year");
   }
 
-  _duration(stamp) {
+  _duration(stamp, display = "long") {
     const days = Math.max(0, Math.floor((Date.now() - Date.parse(stamp)) / 86400000));
     if (days === 0) return null;
     const [n, unit] = days < 60 ? [days, "day"] : [Math.round(days / 30.4), "month"];
-    return new Intl.NumberFormat(this._lang, { style: "unit", unit, unitDisplay: "long" }).format(n);
+    return new Intl.NumberFormat(this._lang, { style: "unit", unit, unitDisplay: display }).format(n);
   }
 
   _render() {
     if (!this._catalog) return;
     const t = this.t;
     const s = this._state;
-    const segment = (key, options) =>
-      `<div class="seg" role="group" aria-label="${esc(t[key === "cat" ? "category" : "status"])}">${options
-        .map((v) => `<button type="button" data-${key}="${v}" aria-pressed="${s[key] === v}">${esc(t[v])}</button>`)
+    const labels = { cat: t.category, status: t.status, view: t.view };
+    const segment = (key, options, current = s[key]) =>
+      `<div class="seg" role="group" aria-label="${esc(labels[key])}">${options
+        .map((v) => `<button type="button" data-${key}="${v}" aria-pressed="${current === v}">${esc(t[v])}</button>`)
         .join("")}</div>`;
     const sorts = ["score", "stars", "updated", "queue", "created"];
     this.shadowRoot.innerHTML = `
@@ -573,6 +652,7 @@ class BazaarCatalog extends HTMLElement {
               .map((v) => `<option value="${v}" ${s.sort === v ? "selected" : ""}>${esc(t["sort_" + v])}</option>`)
               .join("")}</select>
           </label>
+          ${segment("view", ["compact", "full"], this._view)}
         </div>
         <div class="row">
           <label class="tog"><input type="checkbox" data-tog="passing" ${s.passing ? "checked" : ""}>${esc(t.only_passing)}</label>
@@ -599,6 +679,7 @@ class BazaarCatalog extends HTMLElement {
     root.querySelectorAll("[data-status]").forEach((b) =>
       b.addEventListener("click", () => this._update({ status: b.dataset.status }, true)),
     );
+    root.querySelectorAll("[data-view]").forEach((b) => b.addEventListener("click", () => this._setView(b.dataset.view)));
     root.querySelector("select").addEventListener("change", (ev) => this._update({ sort: ev.target.value }));
     root.querySelectorAll("[data-tog]").forEach((c) =>
       c.addEventListener("change", () => this._update({ [c.dataset.tog]: c.checked })),
@@ -624,6 +705,17 @@ class BazaarCatalog extends HTMLElement {
     this.dispatchEvent(new CustomEvent("bazaar-filters", { detail: { ...this._state } }));
   }
 
+  _setView(view) {
+    this._view = view === "full" ? "full" : "compact";
+    try {
+      localStorage.setItem(VIEW_KEY, this._view);
+    } catch {
+      // Not remembered; the choice still holds for this visit.
+    }
+    this.shadowRoot.querySelectorAll("[data-view]").forEach((b) => b.setAttribute("aria-pressed", b.dataset.view === this._view));
+    this._renderList();
+  }
+
   _renderList() {
     const root = this.shadowRoot;
     const grid = root.querySelector(".grid");
@@ -635,14 +727,82 @@ class BazaarCatalog extends HTMLElement {
       Math.min(this._shown, list.length).toLocaleString(this._lang),
       list.length.toLocaleString(this._lang),
     );
-    grid.innerHTML = list.length
-      ? this._visible.map((e, i) => this._card(e, i)).join("")
-      : `<div class="empty">${esc(t.none)}</div>`;
+    const compact = this._view === "compact";
+    grid.className = compact ? "grid list" : "grid";
+    if (!list.length) grid.innerHTML = `<div class="empty">${esc(t.none)}</div>`;
+    else if (compact) grid.innerHTML = `<ul class="rows">${this._visible.map((e, i) => this._row(e, i)).join("")}</ul>`;
+    else grid.innerHTML = this._visible.map((e, i) => this._card(e, i)).join("");
     root.querySelector(".more").innerHTML =
       list.length > this._shown ? `<button type="button" class="btn">${esc(t.more)}</button>` : "";
   }
 
-  _card(e, index) {
+  // One line per repository; the name opens the full card beneath it.
+  _row(e, index) {
+    const t = this.t;
+    const [owner, name] = e.repo.split("/");
+    const letter = (e.name || name).trim().charAt(0).toUpperCase();
+    const color = `hsl(${hue(e.repo)} 45% 45%)`;
+    const icon = e.icon
+      ? `<img src="${esc(e.icon)}" alt="" loading="lazy" referrerpolicy="no-referrer">`
+      : esc(letter);
+    const open = this._expanded.has(e.repo.toLowerCase());
+    const known = this._known.get(e.repo.toLowerCase());
+    const flags = e.scan?.flags || [];
+    const failed = e.failed || [];
+    const checkKeys = e.category === "integration" ? INTEGRATION_CHECKS : CHECKS;
+    const sig = (cls, iconName, text, label) =>
+      `<span class="sg ${cls}" role="img" aria-label="${esc(label)}" title="${esc(label)}">${svg(iconName)}${
+        text ? `<span class="t">${esc(text)}</span>` : ""
+      }</span>`;
+    const byLevel = (level) => flags.filter((f) => f.severity === level);
+    const flagSig = (level) => {
+      const hits = byLevel(level);
+      return hits.length ? sig(level, "alert", String(hits.length), hits.map((f) => t.flag[f.rule] || f.rule).join(", ")) : "";
+    };
+    const clashes = this._clashes(e);
+    const pr = e.pending?.checks;
+    const signals = [
+      flagSig("high"),
+      pr === "failure" ? sig("high", "cross", "PR", t.pr_failed((e.pending.failed || []).join(", "))) : "",
+      clashes.length ? sig("medium", "clash", t.clash_short, clashes.join(". ")) : "",
+      flagSig("medium"),
+      e.pending
+        ? sig("", "queue", this._duration(e.pending.since, "short") || t.today_short,
+            t.queue(e.pending.pr, this._duration(e.pending.since)))
+        : "",
+      pr === "success" ? sig("ok", "check", "PR", t.pr_ok) : pr === "pending" ? sig("", "clock", "PR", t.pr_running) : "",
+      failed.length
+        ? sig("", "cross", `${checkKeys.length - failed.length}/${checkKeys.length}`,
+            t.checks_failed(checkKeys.length - failed.length, checkKeys.length, failed.map((k) => t.check[k] || k).join(", ")))
+        : "",
+    ].join("");
+
+    let action;
+    if (this._mode === "panel" && known) {
+      const state = known.installed ? t.installed : t.added;
+      action = `<button type="button" class="btn sm state" data-open="${index}" title="${esc(t.open_hacs)}" aria-label="${esc(`${state}. ${t.open_hacs}`)}">${svg("check")}<span class="lbl">${esc(state)}</span></button>`;
+    } else if (this._mode === "panel") {
+      const busy = this._busy.has(e.repo.toLowerCase());
+      action = `<button type="button" class="btn sm primary" data-add="${index}" aria-label="${esc(t.add_hacs)}" ${busy ? "disabled" : ""}>${svg("ha")}<span class="lbl">${esc(busy ? t.adding : t.add_hacs)}</span></button>`;
+    } else {
+      action = `<button type="button" class="btn sm primary" data-add="${index}" aria-label="${esc(t.open_hacs)}">${svg("ha")}<span class="lbl">${esc(t.open_hacs)}</span></button>`;
+    }
+
+    return `<li class="r">
+        <div class="icon sm" style="${e.icon ? "" : `background:${color}`}" data-letter="${esc(letter)}" data-color="${color}">${icon}</div>
+        <button type="button" class="c-main" data-expand="${index}" aria-expanded="${open}">
+          <span class="nm">${esc(e.name)}</span><span class="rp">${esc(owner)}/${esc(name)}</span>${svg("chevron", "i chev")}
+        </button>
+        <span class="c-sig">${signals}</span>
+        <span class="c-cat">${esc(t.cat[e.category] || e.category)}</span>
+        <span class="c-stars" role="img" aria-label="${esc(t.stars(e.stars.toLocaleString(this._lang), e.stars === 1))}">${svg("star")}${esc(e.stars.toLocaleString(this._lang))}</span>
+        <span class="c-rel">${esc(e.release ? e.release.tag : t.no_release)}</span>
+        <span class="c-upd">${esc(e.updated ? this._ago(e.updated) : "")}</span>
+        <span class="c-act">${action}</span>
+      </li>${open ? `<li class="x">${this._card(e, index, true)}</li>` : ""}`;
+  }
+
+  _card(e, index, inline = false) {
     const t = this.t;
     const [owner, name] = e.repo.split("/");
     const letter = (e.name || name).trim().charAt(0).toUpperCase();
@@ -717,15 +877,17 @@ class BazaarCatalog extends HTMLElement {
       ? `<a class="link" href="${esc(this._reportUrl(e))}" target="_blank" rel="noopener">${esc(t.report)}</a>`
       : "";
 
-    return `<article class="card">
-      <div class="head">
+    const head = inline
+      ? ""
+      : `<div class="head">
         <div class="icon" style="${e.icon ? "" : `background:${color}`}" data-letter="${esc(letter)}" data-color="${color}">${icon}</div>
         <div class="title">
           <div class="name">${esc(e.name)}</div>
           <div class="repo"><a href="https://github.com/${esc(e.repo)}" target="_blank" rel="noopener">${esc(owner)}/${esc(name)}</a></div>
         </div>
         <span class="cat">${esc(t.cat[e.category] || e.category)}</span>
-      </div>
+      </div>`;
+    return `<article class="card">${head}
       ${e.description ? `<p class="desc">${esc(e.description)}</p>` : ""}
       <div class="meta">${meta}</div>
       ${badges.length ? `<div class="badges">${badges.join("")}</div>` : ""}
@@ -740,6 +902,14 @@ class BazaarCatalog extends HTMLElement {
   }
 
   _onAction(ev) {
+    const expand = ev.target.closest("[data-expand]");
+    if (expand) {
+      const key = this._visible[Number(expand.dataset.expand)].repo.toLowerCase();
+      if (!this._expanded.delete(key)) this._expanded.add(key);
+      this._renderList();
+      this.shadowRoot.querySelector(`[data-expand="${expand.dataset.expand}"]`)?.focus();
+      return;
+    }
     const add = ev.target.closest("[data-add]");
     const open = ev.target.closest("[data-open]");
     if (open) {
