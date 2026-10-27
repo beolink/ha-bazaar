@@ -11,7 +11,7 @@ import json
 import logging
 from typing import Any
 
-from .github import GitHub
+from .github import GitHub, OutOfTime
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -75,12 +75,16 @@ def _metadata_batch(gh: GitHub, chunk: list[str]) -> dict[str, dict[str, Any]]:
         )
     try:
         data = gh.graphql(_alias_query(fields))
+    except OutOfTime:
+        return out
     except Exception as err:
         _LOGGER.warning("batch from %s failed (%s); trying one by one", chunk[0], str(err)[:120])
         data = {}
         for alias, field in fields.items():
             try:
                 data.update(gh.graphql(_alias_query({alias: field})))
+            except OutOfTime:
+                break
             except Exception as err2:
                 _LOGGER.warning("%s: %s", chunk[int(alias[1:])], err2)
     for i, full_name in enumerate(chunk):
@@ -104,6 +108,8 @@ def fetch_manifests(gh: GitHub, wanted: dict[str, str], batch: int = 40) -> dict
             )
         try:
             data = gh.graphql(_alias_query(fields))
+        except OutOfTime:
+            break
         except Exception as err:
             _LOGGER.warning("manifest batch failed: %s", err)
             continue

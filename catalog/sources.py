@@ -6,6 +6,7 @@ repository HACS already carries, or has thrown out, never reaches the catalog.
 
 from __future__ import annotations
 
+from collections.abc import Iterator
 from dataclasses import dataclass, field
 import json
 import logging
@@ -212,13 +213,14 @@ def _hacs_query(lo: int, hi: int) -> str:
     return f"filename:hacs.json path:/ size:{lo}..{hi}"
 
 
-def code_search_candidates(gh: GitHub, high: int = 4096) -> dict[str, str]:
-    """Repositories with a hacs.json at the root, by lowercased name.
+def code_search_candidates(gh: GitHub, high: int = 4096) -> Iterator[str]:
+    """Repositories with a hacs.json at the root, each name once.
 
+    A generator, so a search that stops halfway still leaves what it found.
     GitHub's index leaves out most forks, and is incomplete at the edges; what it
     misses is found again the next night or not at all, which the catalog can live with.
     """
-    found: dict[str, str] = {}
+    found: set[str] = set()
     for (lo, hi), first in size_ranges(gh, 0, high):
         page, result = 1, first
         while True:
@@ -226,11 +228,12 @@ def code_search_candidates(gh: GitHub, high: int = 4096) -> dict[str, str]:
                 if item.get("path") != "hacs.json":
                     continue
                 name = item["repository"]["full_name"]
-                found.setdefault(norm(name), name)
+                if norm(name) not in found:
+                    found.add(norm(name))
+                    yield name
             total = min(result.get("total_count", 0), 1000)
             if page * 100 >= total or not result.get("items"):
                 break
             page += 1
             result = gh.code_search(_hacs_query(lo, hi), page)
         _LOGGER.info("hacs.json %d..%d bytes: %d repositories so far", lo, hi, len(found))
-    return found

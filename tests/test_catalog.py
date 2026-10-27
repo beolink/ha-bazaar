@@ -2,13 +2,21 @@
 
 from __future__ import annotations
 
+import http.client
 import io
 import json
 import tarfile
+import time
+import urllib.error
+import urllib.request
+
+import pytest
 
 from catalog import analyze, scan
-from catalog.collect import for_clients
-from catalog.sources import repo_from_title, summarize_checks
+from catalog.collect import _safe_scan, for_clients
+from catalog.github import GitHub, OutOfTime
+from catalog.inspect import fetch_metadata
+from catalog.sources import code_search_candidates, repo_from_title, summarize_checks
 
 
 def _repo(**over):
@@ -313,3 +321,63 @@ def test_zip_python_files():
     assert list(files) == ["__init__.py"]
     assert skipped == 1
     assert [f["rule"] for f in scan.scan_source(files)] == ["shell"]
+
+
+def test_a_wait_past_the_deadline_stops_instead(monkeypatch):
+    headers = http.client.HTTPMessage()
+    headers["Retry-After"] = "736"
+
+    def throttled(request, timeout):
+        raise urllib.error.HTTPError(request.full_url, 429, "Too Many Requests", headers, io.BytesIO(b""))
+
+    monkeypatch.setattr(urllib.request, "urlopen", throttled)
+    gh = GitHub("token")
+    gh.phase(time.monotonic() + 60)
+    began = time.monotonic()
+    with pytest.raises(OutOfTime):
+        gh.rest("/search/code")
+    assert time.monotonic() - began < 5
+    assert gh.stopped
+    gh.phase(None)
+    assert not gh.stopped and not gh.out_of_time(10_000)
+
+
+class _SlowSearch:
+    """Code search that splits the sizes once, answers one half and then runs out of time."""
+
+    def __init__(self):
+        self.calls = 0
+
+    def code_search(self, query, page=1):
+        self.calls += 1
+        if self.calls == 1:
+            return {"total_count": 1500, "items": []}
+        if self.calls == 2:
+            items = [{"path": "hacs.json", "repository": {"full_name": n}} for n in ("o/a", "o/b", "O/A")]
+            return {"total_count": 3, "items": items}
+        raise OutOfTime("out of time")
+
+
+def test_a_search_cut_short_keeps_what_it_found():
+    found = []
+    with pytest.raises(OutOfTime):
+        for name in code_search_candidates(_SlowSearch()):
+            found.append(name)
+    assert found == ["o/a", "o/b"]
+
+
+def test_metadata_out_of_time_stops_without_one_by_one():
+    class Gh:
+        calls = 0
+
+        def graphql(self, query, variables=None):
+            Gh.calls += 1
+            raise OutOfTime("out of time")
+
+    assert fetch_metadata(Gh(), [f"o/r{i}" for i in range(30)], batch=15, workers=1) == {}
+    assert Gh.calls == 2
+
+
+def test_no_scan_once_the_time_is_up():
+    entry = {"repo": "o/r", "category": "integration", "commit": "abc"}
+    assert _safe_scan(None, entry, None, until=time.monotonic() - 1) is None

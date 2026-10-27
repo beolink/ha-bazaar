@@ -28,6 +28,10 @@ class GitHubError(RuntimeError):
     """A request GitHub answered with an error that waiting does not fix."""
 
 
+class OutOfTime(GitHubError):
+    """The phase of the night has no time left for this request, or for waiting on GitHub."""
+
+
 def find_token() -> str | None:
     """The token from the environment, else the one the gh CLI is logged in with."""
     for name in ("GITHUB_TOKEN", "GH_TOKEN"):
@@ -50,6 +54,24 @@ class GitHub:
         self._code_search_interval = code_search_interval
         self._last_code_search = 0.0
         self._lock = threading.Lock()
+        self.deadline: float | None = None
+        self.stopped = False
+
+    def phase(self, deadline: float | None) -> None:
+        """Start a part of the night that has to be done by `deadline`, on time.monotonic()'s clock.
+
+        Past it every request raises OutOfTime, and so does a rate limit whose
+        wait would run past it; `stopped` says afterwards whether that happened.
+        """
+        self.deadline = deadline
+        self.stopped = False
+
+    def out_of_time(self, wait: float = 0.0) -> bool:
+        return self.deadline is not None and time.monotonic() + wait >= self.deadline
+
+    def _stop(self, why: str) -> OutOfTime:
+        self.stopped = True
+        return OutOfTime(why)
 
     def _headers(self, accept: str = "application/vnd.github+json") -> dict[str, str]:
         headers = {"Accept": accept, "User-Agent": USER_AGENT, "X-GitHub-Api-Version": "2022-11-28"}
@@ -59,6 +81,8 @@ class GitHub:
 
     def _send(self, request: urllib.request.Request, attempts: int = 6) -> tuple[bytes, dict[str, str]]:
         for attempt in range(attempts):
+            if self.out_of_time():
+                raise self._stop(f"{request.full_url}: out of time")
             try:
                 with urllib.request.urlopen(request, timeout=60) as response:
                     return response.read(), dict(response.headers)
@@ -67,6 +91,8 @@ class GitHub:
                 if wait is None or attempt == attempts - 1:
                     body = err.read()[:300].decode(errors="replace")
                     raise GitHubError(f"{err.code} {request.full_url}: {body}") from err
+                if self.out_of_time(wait):
+                    raise self._stop(f"{err.code} {request.full_url}: no time to wait {wait:.0f} s") from err
                 _LOGGER.warning("GitHub said %s, waiting %.0f s", err.code, wait)
                 time.sleep(wait)
             except (urllib.error.URLError, http.client.HTTPException, OSError) as err:
@@ -122,6 +148,8 @@ class GitHub:
             if not serious:
                 return result.get("data") or {}
             if any(e.get("type") == "RATE_LIMITED" for e in serious) and attempt < 3:
+                if self.out_of_time(60):
+                    raise self._stop("GraphQL: rate limited, no time to wait")
                 time.sleep(60)
                 continue
             if result.get("data") and attempt == 3:

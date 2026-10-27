@@ -51,11 +51,15 @@ jobs:
           curl -fsSL "$PUBLISHED" -o public/catalog.json
           curl -fsSL "${PUBLISHED%catalog.json}scan-cache.json" -o public/scan-cache.json
       # Every night, by hand, and on a push before any catalog has been published.
+      # The budget stays well inside timeout-minutes: a night GitHub slows down
+      # publishes what it collected in time instead of being cut off with nothing.
       - name: Collect the catalog
         if: github.event_name != 'push' || steps.reuse.outcome != 'success'
         env:
           GITHUB_TOKEN: ${{ secrets.CATALOG_TOKEN || github.token }}
-        run: python -m catalog.collect --out public/catalog.json --previous "${PUBLISHED%catalog.json}scan-cache.json"
+        run: >-
+          python -m catalog.collect --out public/catalog.json --budget 200
+          --previous "${PUBLISHED%catalog.json}scan-cache.json"
       - name: Put the website together
         run: python scripts/build_site.py --catalog public/catalog.json --out public
       - uses: actions/upload-pages-artifact@v5
