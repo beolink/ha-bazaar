@@ -1,0 +1,73 @@
+name: Catalog
+
+# Builds catalog.json every night and publishes it with the website on GitHub
+# Pages. A push that only changes the website reuses the published catalog
+# instead of spending an hour collecting a new one.
+#
+# Code search does not accept the workflow's own token everywhere, so the job
+# reads a fine-grained token with public read access from the CATALOG_TOKEN
+# secret when there is one. Without it the run falls back to the workflow
+# token, and if code search refuses that, the catalog has only the HACS queue.
+
+on:
+  schedule:
+    - cron: "17 2 * * *"
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "site/**"
+      - "custom_components/bazaar/frontend/bazaar-catalog.js"
+      - "scripts/build_site.py"
+      - ".github/workflows/catalog.yml"
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+env:
+  PUBLISHED: https://beolink.github.io/ha-bazaar/catalog.json
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 240
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.14"
+      - name: Reuse the published catalog
+        id: reuse
+        if: github.event_name == 'push'
+        continue-on-error: true
+        run: |
+          mkdir -p public
+          curl -fsSL "$PUBLISHED" -o public/catalog.json
+          curl -fsSL "${PUBLISHED%catalog.json}scan-cache.json" -o public/scan-cache.json
+      # Every night, by hand, and on a push before any catalog has been published.
+      - name: Collect the catalog
+        if: github.event_name != 'push' || steps.reuse.outcome != 'success'
+        env:
+          GITHUB_TOKEN: ${{ secrets.CATALOG_TOKEN || github.token }}
+        run: python -m catalog.collect --out public/catalog.json --previous "${PUBLISHED%catalog.json}scan-cache.json"
+      - name: Put the website together
+        run: python scripts/build_site.py --catalog public/catalog.json --out public
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: public
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v5

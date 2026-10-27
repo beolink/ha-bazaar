@@ -1,0 +1,40 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Bazaar",
+        "description": "Bazaar visar de repon som HACS kan installera men inte listar än, i en panel i sidomenyn. HACS måste vara uppsatt, eftersom Bazaar lägger till repon där.",
+        "data": {
+          "catalog_url": "Katalogens adress"
+        },
+        "data_description": {
+          "catalog_url": "Varifrån katalogen hämtas. Behåll förvalet om du inte kör en egen kopia."
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Katalogen gick inte att hämta från den adressen.",
+      "invalid_catalog": "Adressen ger ingen katalog som den här versionen av Bazaar kan läsa."
+    },
+    "abort": {
+      "single_instance_allowed": "Bazaar är redan uppsatt."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Bazaar",
+        "data": {
+          "catalog_url": "Katalogens adress"
+        },
+        "data_description": {
+          "catalog_url": "Varifrån katalogen hämtas. Behåll förvalet om du inte kör en egen kopia."
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Katalogen gick inte att hämta från den adressen.",
+      "invalid_catalog": "Adressen ger ingen katalog som den här versionen av Bazaar kan läsa."
+    }
+  }
+}

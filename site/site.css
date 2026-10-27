@@ -1,0 +1,131 @@
+/* The website defines Home Assistant's own theme variables, so <bazaar-catalog>
+   looks the same here as in the panel. */
+:root {
+  color-scheme: light;
+  --primary-color: #0b7fc2;
+  --text-primary-color: #fff;
+  --primary-text-color: #1b1f24;
+  --secondary-text-color: #5b636d;
+  --primary-background-color: #f4f6f8;
+  --secondary-background-color: #e8ecf0;
+  --card-background-color: #ffffff;
+  --divider-color: #dde2e7;
+  --error-color: #c62828;
+  --warning-color: #a85d00;
+  --success-color: #2e7d32;
+  --ha-card-border-radius: 14px;
+  --notice-bg: #fff6e5;
+  --notice-line: #f0c46b;
+  --hero-from: #e6f3fb;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --primary-color: #4fb3ea;
+    --text-primary-color: #06121b;
+    --primary-text-color: #e7eaee;
+    --secondary-text-color: #a1a9b3;
+    --primary-background-color: #111418;
+    --secondary-background-color: #232830;
+    --card-background-color: #1a1e24;
+    --divider-color: #2c323b;
+    --error-color: #ff8a80;
+    --warning-color: #ffb74d;
+    --success-color: #81c784;
+    --notice-bg: #2a2214;
+    --notice-line: #6b5426;
+    --hero-from: #13202b;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --primary-color: #4fb3ea;
+  --text-primary-color: #06121b;
+  --primary-text-color: #e7eaee;
+  --secondary-text-color: #a1a9b3;
+  --primary-background-color: #111418;
+  --secondary-background-color: #232830;
+  --card-background-color: #1a1e24;
+  --divider-color: #2c323b;
+  --error-color: #ff8a80;
+  --warning-color: #ffb74d;
+  --success-color: #81c784;
+  --notice-bg: #2a2214;
+  --notice-line: #6b5426;
+  --hero-from: #13202b;
+}
+
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  background: var(--primary-background-color);
+  color: var(--primary-text-color);
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  line-height: 1.5;
+}
+a { color: var(--primary-color); }
+.wrap { max-width: 1200px; margin: 0 auto; padding: 0 16px; }
+
+.top {
+  background: var(--card-background-color);
+  border-bottom: 1px solid var(--divider-color);
+  position: sticky; top: 0; z-index: 5;
+}
+.top-row { display: flex; align-items: center; justify-content: space-between; height: 60px; gap: 12px; }
+.brand { display: inline-flex; align-items: center; gap: 10px; text-decoration: none; color: inherit; font-weight: 700; font-size: 20px; letter-spacing: -0.01em; }
+.brand img { border-radius: 9px; }
+.nav { display: flex; align-items: center; gap: 18px; font-size: 15px; }
+.nav a { color: var(--secondary-text-color); text-decoration: none; }
+.nav a:hover { color: var(--primary-text-color); }
+.lang {
+  font: inherit; font-size: 13px; font-weight: 600;
+  border: 1px solid var(--divider-color); background: transparent; color: var(--primary-text-color);
+  border-radius: 8px; padding: 5px 9px; cursor: pointer;
+}
+
+.intro {
+  padding: 40px 0 20px;
+}
+.eyebrow { margin: 0 0 10px; font-size: 14px; font-weight: 600; letter-spacing: 0.02em; color: var(--primary-color); }
+.intro h1 { font-size: clamp(28px, 4.5vw, 42px); line-height: 1.12; letter-spacing: -0.02em; margin: 0 0 14px; max-width: 18ch; }
+.lead { font-size: 18px; color: var(--secondary-text-color); max-width: 62ch; margin: 0 0 12px; }
+.stats { font-size: 15px; font-weight: 500; margin: 0; min-height: 1.5em; }
+
+.notice {
+  display: flex; gap: 12px; align-items: flex-start;
+  background: var(--notice-bg); border: 1px solid var(--notice-line);
+  border-radius: 12px; padding: 12px 16px; margin: 8px 0 24px;
+}
+.notice svg { width: 22px; height: 22px; flex: none; fill: var(--warning-color); margin-top: 1px; }
+.notice p { margin: 0; font-size: 15px; }
+
+.loading { color: var(--secondary-text-color); padding: 24px 0; }
+
+.how { margin: 56px 0 0; }
+.how, .panel-cta { scroll-margin-top: 76px; }
+.how h2, .panel-cta h2 { font-size: 24px; letter-spacing: -0.01em; margin: 0 0 12px; }
+.how ol { margin: 0; padding-left: 22px; display: grid; gap: 10px; max-width: 75ch; }
+.how li { padding-left: 4px; }
+
+.panel-cta {
+  margin: 40px 0 56px;
+  display: flex; gap: 20px 32px; align-items: center; justify-content: space-between; flex-wrap: wrap;
+  background: linear-gradient(135deg, var(--hero-from), var(--card-background-color));
+  border: 1px solid var(--divider-color); border-radius: 16px; padding: 24px;
+}
+.panel-cta p { margin: 0; max-width: 62ch; color: var(--secondary-text-color); }
+.cta {
+  display: inline-block; text-decoration: none; font-weight: 600;
+  background: var(--primary-color); color: var(--text-primary-color);
+  padding: 11px 18px; border-radius: 10px; white-space: nowrap;
+}
+
+.foot { border-top: 1px solid var(--divider-color); padding: 20px 0 32px; font-size: 14px; color: var(--secondary-text-color); }
+.foot p { margin: 0; }
+
+@media (max-width: 600px) {
+  .nav a { display: none; }
+  .intro { padding-top: 28px; }
+  .lead { font-size: 16px; }
+}

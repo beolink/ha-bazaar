@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Bazaar</title>
+  <meta property="og:title" content="Bazaar: unofficial catalog of HACS-ready repositories for Home Assistant">
+  <meta name="description" content="Home Assistant integrations, dashboard cards and themes that HACS can install but does not list yet, with HACS's own checks and a first read of the code.">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="site.css">
+  <script type="module" src="bazaar-catalog.js"></script>
+  <script type="module" src="site.js"></script>
+</head>
+<body>
+  <header class="top">
+    <div class="wrap top-row">
+      <a class="brand" href="./">
+        <img src="icon.svg" alt="" width="36" height="36">
+        <span>Bazaar</span>
+      </a>
+      <nav class="nav">
+        <a href="#how" data-t="nav_how">How it works</a>
+        <a href="#panel" data-t="nav_panel">In Home Assistant</a>
+        <button type="button" class="lang" id="lang" aria-label="Svenska">SV</button>
+      </nav>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <section class="intro">
+      <p class="eyebrow" data-t="eyebrow">Unofficial catalog of HACS-ready repositories for Home Assistant</p>
+      <h1 data-t="title">What HACS can install but does not list yet</h1>
+      <p class="lead" data-t="lead">Integrations, dashboard cards and themes for Home Assistant that are ready for HACS, most of them waiting in its review queue. Each one shows how it fares against HACS's own checks and what a first read of its code found.</p>
+      <p class="stats" id="stats" aria-live="polite"></p>
+    </section>
+
+    <aside class="notice" role="note">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13,14H11V10H13M13,18H11V16H13M1,21H23L12,2L1,21Z"/></svg>
+      <p data-t="notice">Nothing here has been reviewed by HACS. It is other people's code, added to your Home Assistant as a custom repository. Look at the checks and flags on each card, and at the code when in doubt.</p>
+    </aside>
+
+    <bazaar-catalog id="catalog"></bazaar-catalog>
+    <p class="loading" id="loading" data-t="loading">Loading the catalog…</p>
+
+    <section class="how" id="how">
+      <h2 data-t="how_title">How it works</h2>
+      <ol>
+        <li data-t="how_1">Every night the catalog reads the open pull requests to hacs/default and searches GitHub for every hacs.json. Whatever HACS already lists, or has removed, is left out, and so are archived repositories and forks.</li>
+        <li data-t="how_2">Each repository is held up against the checks HACS runs before it lists one. For those in the queue, the result of HACS's own action on the pull request is shown too. An integration whose domain is already taken by one in HACS or in Home Assistant is marked, since only one of them can be installed.</li>
+        <li data-t="how_3">The Python of each integration is read as code, not as text, for things worth a second look, such as running text as code or starting programs. A flag is a reason to read, not a verdict.</li>
+        <li data-t="how_4">Open in HACS takes you to your own Home Assistant through My Home Assistant. HACS asks whether to add the repository, and from then on installs and updates it like any other.</li>
+      </ol>
+    </section>
+
+    <section class="panel-cta" id="panel">
+      <div>
+        <h2 data-t="panel_title">Bazaar in Home Assistant</h2>
+        <p data-t="panel_body">The companion integration puts this catalog in Home Assistant's sidebar, shows what HACS already has, and adds a repository to HACS with one click. Install it through HACS like any other custom repository.</p>
+      </div>
+      <a class="cta" id="self-link" href="#" target="_blank" rel="noopener" data-t="panel_button">Add Bazaar to HACS</a>
+    </section>
+  </main>
+
+  <footer class="foot">
+    <div class="wrap">
+      <p><span data-t="footer">Not affiliated with HACS or Home Assistant.</span> <a id="source" href="#" data-t="source">Source and reports</a></p>
+    </div>
+  </footer>
+</body>
+</html>

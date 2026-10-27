@@ -1,0 +1,40 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Bazaar",
+        "description": "Bazaar shows the repositories HACS can install but does not list yet, in a panel in the sidebar. HACS must be set up, since Bazaar adds repositories to it.",
+        "data": {
+          "catalog_url": "Catalog address"
+        },
+        "data_description": {
+          "catalog_url": "Where the catalog is fetched from. Keep the default unless you run your own copy."
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "The catalog could not be fetched from that address.",
+      "invalid_catalog": "That address does not give a catalog this version of Bazaar can read."
+    },
+    "abort": {
+      "single_instance_allowed": "Bazaar is already set up."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Bazaar",
+        "data": {
+          "catalog_url": "Catalog address"
+        },
+        "data_description": {
+          "catalog_url": "Where the catalog is fetched from. Keep the default unless you run your own copy."
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "The catalog could not be fetched from that address.",
+      "invalid_catalog": "That address does not give a catalog this version of Bazaar can read."
+    }
+  }
+}
