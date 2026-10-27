@@ -584,9 +584,12 @@ class BazaarCatalog extends HTMLElement {
       <div class="more"></div>
       <dialog></dialog>`;
     const root = this.shadowRoot;
-    root.querySelector(".search").addEventListener("input", (ev) => {
+    const search = root.querySelector(".search");
+    // Read the field itself when the timer fires: once an event from inside a
+    // shadow root has been dispatched, the browser sets its target to null.
+    search.addEventListener("input", () => {
       clearTimeout(this._timer);
-      this._timer = setTimeout(() => this._update({ q: ev.target.value }), 120);
+      this._timer = setTimeout(() => this._update({ q: search.value }), 120);
     });
     root.querySelectorAll("[data-cat]").forEach((b) =>
       b.addEventListener("click", () => this._update({ cat: b.dataset.cat }, true)),
