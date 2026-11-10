@@ -13,7 +13,7 @@ import urllib.request
 import pytest
 
 from catalog import analyze, scan
-from catalog.collect import _safe_scan, for_clients
+from catalog.collect import SCHEMA, _previous_names, _safe_scan, for_clients
 from catalog.github import GitHub, OutOfTime
 from catalog.inspect import fetch_metadata
 from catalog.sources import code_search_candidates, repo_from_title, summarize_checks
@@ -381,3 +381,17 @@ def test_metadata_out_of_time_stops_without_one_by_one():
 def test_no_scan_once_the_time_is_up():
     entry = {"repo": "o/r", "category": "integration", "commit": "abc"}
     assert _safe_scan(None, entry, None, until=time.monotonic() - 1) is None
+
+
+def test_a_timed_out_search_page_is_tried_again():
+    err = urllib.error.HTTPError("https://api.github.com/search/code", 408, "Request Timeout", http.client.HTTPMessage(), io.BytesIO(b""))
+    assert GitHub._wait_for(err) == 10.0
+
+
+def test_previous_catalog_names(tmp_path):
+    path = tmp_path / "catalog.json"
+    path.write_text(json.dumps({"schema": SCHEMA, "repositories": [{"repo": "o/a"}, {"repo": 3}, "x", {"repo": "o/b"}]}))
+    assert _previous_names(str(path)) == ["o/a", "o/b"]
+    path.write_text(json.dumps({"schema": SCHEMA + 1, "repositories": [{"repo": "o/a"}]}))
+    assert _previous_names(str(path)) == []
+    assert _previous_names(None) == []

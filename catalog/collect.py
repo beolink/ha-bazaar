@@ -72,6 +72,17 @@ def _load_json(source: str | None) -> Any:
         return None
 
 
+def _previous_names(source: str | None) -> list[str]:
+    """The repositories in last night's catalog, for a night whose search stopped short."""
+    previous = _load_json(source)
+    if not isinstance(previous, dict) or previous.get("schema") != SCHEMA:
+        return []
+    return [
+        e["repo"] for e in previous.get("repositories") or []
+        if isinstance(e, dict) and isinstance(e.get("repo"), str)
+    ]
+
+
 def _brand_domains(gh: GitHub) -> tuple[set[str] | None, set[str]]:
     """Custom domains with icons in home-assistant/brands, and Home Assistant's own domains.
 
@@ -321,6 +332,14 @@ def collect(args: argparse.Namespace) -> tuple[dict[str, Any], dict[str, Any]]:
             # The queue and what the search found before it stopped still make a catalog.
             _LOGGER.error("code search stopped with %d candidates: %s", len(candidates), err)
             incomplete.append("search")
+            # Last night's catalog keeps the rest from dropping out for a night;
+            # each one is looked up afresh below, so what has gone stays gone.
+            carried = 0
+            for name in _previous_names(args.previous_catalog):
+                if norm(name) not in candidates:
+                    candidates[norm(name)] = name
+                    carried += 1
+            _LOGGER.warning("%d candidates carried over from the previous catalog", carried)
     denied = load_denylist()
     names = [
         n for low, n in candidates.items() if low not in default and low not in removed and low not in denied
@@ -450,6 +469,9 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--out", default="site/catalog.json")
     parser.add_argument("--previous", help="last night's scan-cache.json, path or URL")
+    parser.add_argument(
+        "--previous-catalog", help="last night's catalog.json, whose repositories stand in when the search stops short"
+    )
     parser.add_argument("--cache-out", help="where the scan cache goes; next to --out by default")
     parser.add_argument("--limit", type=int, help="look at only this many candidates (queue first)")
     parser.add_argument("--no-search", action="store_true", help="only the HACS queue, no code search")

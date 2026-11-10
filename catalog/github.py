@@ -106,6 +106,10 @@ class GitHub:
     @staticmethod
     def _wait_for(err: urllib.error.HTTPError) -> float | None:
         """How long to wait before trying again, or None when trying again is pointless."""
+        # Code search answers 408 when a page takes too long to put together;
+        # the same page usually comes back on the next try.
+        if err.code == 408:
+            return 10.0
         if err.code in (500, 502, 503, 504):
             return 5.0
         if err.code not in (403, 429):

@@ -59,7 +59,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.CATALOG_TOKEN || github.token }}
         run: >-
           python -m catalog.collect --out public/catalog.json --budget 200
-          --previous "${PUBLISHED%catalog.json}scan-cache.json"
+          --previous "${PUBLISHED%catalog.json}scan-cache.json" --previous-catalog "$PUBLISHED"
       - name: Put the website together
         run: python scripts/build_site.py --catalog public/catalog.json --out public
       - uses: actions/upload-pages-artifact@v5
