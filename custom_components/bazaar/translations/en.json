@@ -3,7 +3,7 @@
     "step": {
       "user": {
         "title": "Bazaar",
-        "description": "Bazaar shows the repositories HACS can install but does not list yet, in a panel in the sidebar. HACS must be set up, since Bazaar adds repositories to it.",
+        "description": "Bazaar shows the repositories HACS can install but does not list yet, in a panel in the sidebar. The Marketplace (Home Assistant 2026.11 and later) or HACS must be set up, since Bazaar adds repositories to it.",
         "data": {
           "catalog_url": "Catalog address"
         },

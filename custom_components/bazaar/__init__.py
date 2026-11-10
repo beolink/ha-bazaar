@@ -1,7 +1,8 @@
 """Bazaar: the repositories HACS can install but does not list, in a sidebar panel.
 
 The integration only fetches the catalog and shows it. Adding a repository is
-done by the panel over HACS's own websocket API, so HACS installs and updates
+done by the panel over the store's own websocket API, the Marketplace's since
+Home Assistant 2026.11 or HACS's before it, so the store installs and updates
 it like any other custom repository and Bazaar never touches files itself.
 """
 
@@ -107,7 +108,7 @@ def _info(hass: HomeAssistant, coordinator: CatalogCoordinator) -> dict[str, Any
         "counts": catalog.counts if catalog else {},
         "last_update_success": coordinator.last_update_success,
         "error": str(error) if error and not coordinator.last_update_success else None,
-        "hacs": "hacs" in hass.config.components,
+        "store": next((s for s in ("marketplace", "hacs") if s in hass.config.components), None),
         "version": VERSION,
     }
 

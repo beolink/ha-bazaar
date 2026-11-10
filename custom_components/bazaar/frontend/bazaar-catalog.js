@@ -4,8 +4,9 @@
 // "site") the action is a My Home Assistant link, and HACS asks whether to add
 // the repository. In the Home Assistant panel (mode "panel") the host element
 // adds it over HACS's websocket API and passes back what HACS already has in
-// `known`. Colours come from Home Assistant's theme variables, which the
-// website defines itself.
+// `known`. Where it adds them, `store`, is the Marketplace built into Home
+// Assistant since 2026.11, or HACS before it. Colours come from Home
+// Assistant's theme variables, which the website defines itself.
 
 const PAGE = 60;
 const VIEW_KEY = "bazaar-view";
@@ -68,23 +69,28 @@ const STRINGS = {
     not_scanned: "Source not read",
     scan_error: "Source could not be read",
     details: "Details",
-    open_hacs: "Open in HACS",
-    add_hacs: "Add to HACS",
+    stores: { hacs: "HACS", marketplace: "the Marketplace" },
+    store_site: "HACS or the Marketplace",
+    open_in: (store) => `Open in ${store}`,
+    open_site: "Open in Home Assistant",
+    add_to: (store) => `Add to ${store}`,
+    add_short: "Add",
+    added_short: "Added",
+    not_addable: (store) => `${store.charAt(0).toUpperCase()}${store.slice(1)} does not install this type`,
     adding: "Adding…",
     installed: "Installed",
-    added: "In HACS",
+    added: (store) => `In ${store}`,
     github: "GitHub",
     report: "Report",
-    dialog_title: (name) => `Add ${name} to HACS?`,
-    dialog_body:
-      "HACS has not reviewed this repository. It will be added to HACS as a custom repository, " +
-      "and HACS will install and update it like any other. Read the code first if anything below worries you.",
+    dialog_title: (name, store) => `Add ${name} to ${store}?`,
+    dialog_body: (store) =>
+      `HACS has not reviewed this repository. It will be added to ${store} as a custom repository, ` +
+      "and installed and updated there like any other. Read the code first if anything below worries you.",
     dialog_flags: "What a first read of the code found",
     dialog_noflags: "A first read of the code found nothing that stands out.",
     dialog_partial: (n) => `Some of the code was not read: ${n} files were too large or too many. Nothing stood out in the rest.`,
     dialog_unscanned: "The code has not been read automatically. Only integrations installed from their source are.",
     dialog_go_site: "Continue in Home Assistant",
-    dialog_go_panel: "Add to HACS",
     cancel: "Cancel",
     check: {
       archived: "Not archived", description: "Has a description", topics: "Has topics",
@@ -160,23 +166,28 @@ const STRINGS = {
     not_scanned: "Koden inte läst",
     scan_error: "Koden gick inte att läsa",
     details: "Detaljer",
-    open_hacs: "Öppna i HACS",
-    add_hacs: "Lägg till i HACS",
+    stores: { hacs: "HACS", marketplace: "Marknadsplatsen" },
+    store_site: "HACS eller Marknadsplatsen",
+    open_in: (store) => `Öppna i ${store}`,
+    open_site: "Öppna i Home Assistant",
+    add_to: (store) => `Lägg till i ${store}`,
+    add_short: "Lägg till",
+    added_short: "Tillagd",
+    not_addable: (store) => `${store} installerar inte den här typen`,
     adding: "Lägger till…",
     installed: "Installerad",
-    added: "Finns i HACS",
+    added: (store) => `Finns i ${store}`,
     github: "GitHub",
     report: "Anmäl",
-    dialog_title: (name) => `Lägga till ${name} i HACS?`,
-    dialog_body:
-      "HACS har inte granskat det här repot. Det läggs till i HACS som ett anpassat repo, " +
-      "och HACS installerar och uppdaterar det som alla andra. Läs koden först om något nedan oroar dig.",
+    dialog_title: (name, store) => `Lägga till ${name} i ${store}?`,
+    dialog_body: (store) =>
+      `HACS har inte granskat det här repot. Det läggs till i ${store} som ett anpassat repo ` +
+      "och installeras och uppdateras där som alla andra. Läs koden först om något nedan oroar dig.",
     dialog_flags: "Det här hittade en första läsning av koden",
     dialog_noflags: "En första läsning av koden hittade inget som sticker ut.",
     dialog_partial: (n) => `En del av koden lästes inte: ${n} filer var för stora eller för många. I resten stack inget ut.`,
     dialog_unscanned: "Koden har inte lästs automatiskt. Det görs bara för integrationer som installeras från sin källkod.",
     dialog_go_site: "Fortsätt i Home Assistant",
-    dialog_go_panel: "Lägg till i HACS",
     cancel: "Avbryt",
     check: {
       archived: "Inte arkiverat", description: "Har en beskrivning", topics: "Har ämnen",
@@ -351,6 +362,7 @@ details a { color: var(--bz-accent); overflow-wrap: anywhere; }
 .btn .i { width: 18px; height: 18px; }
 .link { font-size: 13px; color: var(--bz-muted); text-decoration: none; padding: 8px 4px; }
 .link:hover { text-decoration: underline; }
+.note { font-size: 13px; color: var(--bz-muted); }
 .state { font-size: 13px; color: var(--bz-ok); display: inline-flex; gap: 4px; align-items: center; }
 .grid.list { display: block; }
 .rows {
@@ -386,7 +398,7 @@ details a { color: var(--bz-accent); overflow-wrap: anywhere; }
 .c-rel { width: 96px; }
 .c-upd { width: 124px; }
 .c-stars { flex: none; width: 64px; display: inline-flex; gap: 4px; align-items: center; justify-content: flex-end; font-size: 13px; color: var(--bz-muted); }
-.c-act { flex: none; width: 160px; display: flex; justify-content: flex-end; }
+.c-act { flex: none; width: 132px; display: flex; justify-content: flex-end; white-space: nowrap; }
 .btn.sm { font-size: 13px; padding: 5px 10px; gap: 5px; }
 .btn.sm .i { width: 16px; height: 16px; }
 .btn.state { color: var(--bz-ok); }
@@ -506,6 +518,8 @@ class BazaarCatalog extends HTMLElement {
     this._busy = new Set();
     this._lang = "en";
     this._mode = "site";
+    this._store = "hacs";
+    this._addable = null;
     this._reportUrl = null;
     this._shown = PAGE;
     this._state = { q: "", cat: "all", status: "all", sort: "score", passing: false, safe: false, release: false, clashes: false };
@@ -533,7 +547,7 @@ class BazaarCatalog extends HTMLElement {
 
   connectedCallback() {
     // Properties set before the element was defined hide the setters until moved.
-    for (const name of ["mode", "lang", "reportUrl", "known", "busy", "catalog"]) {
+    for (const name of ["mode", "store", "addable", "lang", "reportUrl", "known", "busy", "catalog"]) {
       if (Object.prototype.hasOwnProperty.call(this, name)) {
         const value = this[name];
         delete this[name];
@@ -556,7 +570,27 @@ class BazaarCatalog extends HTMLElement {
     return this._catalog;
   }
 
-  // Lowercased full name to {id, installed} for what HACS already tracks.
+  // "marketplace" or "hacs": the store the panel adds repositories to.
+  set store(value) {
+    this._store = value === "marketplace" ? "marketplace" : "hacs";
+    if (this._catalog) this._renderList();
+  }
+
+  // The categories the store installs, or null when it takes them all.
+  set addable(value) {
+    this._addable = Array.isArray(value) ? new Set(value) : null;
+    if (this._catalog) this._renderList();
+  }
+
+  get _storeName() {
+    return this._mode === "panel" ? this.t.stores[this._store] : this.t.store_site;
+  }
+
+  _canAdd(e) {
+    return !this._addable || this._addable.has(e.category);
+  }
+
+  // Lowercased full name to {id, installed} for what the store already tracks.
   set known(value) {
     this._known = value || new Map();
     if (this._catalog) this._renderList();
@@ -777,15 +811,20 @@ class BazaarCatalog extends HTMLElement {
         : "",
     ].join("");
 
+    const store = this._storeName;
     let action;
+    // The row has room for a word; the store's name is in the title and the notice.
     if (this._mode === "panel" && known) {
-      const state = known.installed ? t.installed : t.added;
-      action = `<button type="button" class="btn sm state" data-open="${index}" title="${esc(t.open_hacs)}" aria-label="${esc(`${state}. ${t.open_hacs}`)}">${svg("check")}<span class="lbl">${esc(state)}</span></button>`;
+      const state = known.installed ? t.installed : t.added(store);
+      const label = `${state}. ${t.open_in(store)}`;
+      action = `<button type="button" class="btn sm state" data-open="${index}" title="${esc(label)}" aria-label="${esc(label)}">${svg("check")}<span class="lbl">${esc(known.installed ? t.installed : t.added_short)}</span></button>`;
+    } else if (this._mode === "panel" && !this._canAdd(e)) {
+      action = `<span class="sg" role="img" aria-label="${esc(t.not_addable(store))}" title="${esc(t.not_addable(store))}">${svg("cross")}</span>`;
     } else if (this._mode === "panel") {
       const busy = this._busy.has(e.repo.toLowerCase());
-      action = `<button type="button" class="btn sm primary" data-add="${index}" aria-label="${esc(t.add_hacs)}" ${busy ? "disabled" : ""}>${svg("ha")}<span class="lbl">${esc(busy ? t.adding : t.add_hacs)}</span></button>`;
+      action = `<button type="button" class="btn sm primary" data-add="${index}" title="${esc(t.add_to(store))}" aria-label="${esc(t.add_to(store))}" ${busy ? "disabled" : ""}>${svg("ha")}<span class="lbl">${esc(busy ? t.adding : t.add_short)}</span></button>`;
     } else {
-      action = `<button type="button" class="btn sm primary" data-add="${index}" aria-label="${esc(t.open_hacs)}">${svg("ha")}<span class="lbl">${esc(t.open_hacs)}</span></button>`;
+      action = `<button type="button" class="btn sm primary" data-add="${index}" title="${esc(t.open_site)}" aria-label="${esc(t.open_site)}">${svg("ha")}<span class="lbl">${esc(t.add_short)}</span></button>`;
     }
 
     return `<li class="r">
@@ -861,17 +900,20 @@ class BazaarCatalog extends HTMLElement {
     const scanLine = !e.scan ? t.not_scanned : read ? t.scanned(e.scan.files, e.scan.skipped, e.scan.asset) : t.scan_error;
     const summary = `${t.checks(checkKeys.length - failed.length - unknown.length, checkKeys.length)} · ${scanLine}`;
 
+    const store = this._storeName;
     let action;
     if (this._mode === "panel") {
       if (known) {
-        action = `<span class="state">${svg("check")}${esc(known.installed ? t.installed : t.added)}</span>
-          <button type="button" class="btn" data-open="${index}">${esc(t.open_hacs)}</button>`;
+        action = `<span class="state">${svg("check")}${esc(known.installed ? t.installed : t.added(store))}</span>
+          <button type="button" class="btn" data-open="${index}">${esc(t.open_in(store))}</button>`;
+      } else if (!this._canAdd(e)) {
+        action = `<span class="note">${esc(t.not_addable(store))}</span>`;
       } else {
         const busy = this._busy.has(e.repo.toLowerCase());
-        action = `<button type="button" class="btn primary" data-add="${index}" ${busy ? "disabled" : ""}>${svg("ha")}${esc(busy ? t.adding : t.add_hacs)}</button>`;
+        action = `<button type="button" class="btn primary" data-add="${index}" ${busy ? "disabled" : ""}>${svg("ha")}${esc(busy ? t.adding : t.add_to(store))}</button>`;
       }
     } else {
-      action = `<button type="button" class="btn primary" data-add="${index}">${svg("ha")}${esc(t.open_hacs)}</button>`;
+      action = `<button type="button" class="btn primary" data-add="${index}">${svg("ha")}${esc(t.open_site)}</button>`;
     }
     const report = this._reportUrl
       ? `<a class="link" href="${esc(this._reportUrl(e))}" target="_blank" rel="noopener">${esc(t.report)}</a>`
@@ -949,14 +991,14 @@ class BazaarCatalog extends HTMLElement {
         .join("")}</ul>`;
     const go =
       this._mode === "panel"
-        ? `<button type="button" class="btn primary" data-go>${esc(t.dialog_go_panel)}</button>`
+        ? `<button type="button" class="btn primary" data-go>${esc(t.add_to(this._storeName))}</button>`
         : `<a class="btn primary" data-go href="${esc(this._myLink(e))}" target="_blank" rel="noopener">${esc(t.dialog_go_site)}</a>`;
     const clashes = this._clashes(e)
       .map((text) => `<li>${svg("alert", "i mid")}<span>${esc(text)}</span></li>`)
       .join("");
     dialog.innerHTML = `<form method="dialog" class="dlg">
-      <h2>${esc(t.dialog_title(e.name))}</h2>
-      <p>${esc(t.dialog_body)}</p>
+      <h2>${esc(t.dialog_title(e.name, this._storeName))}</h2>
+      <p>${esc(t.dialog_body(this._storeName))}</p>
       ${clashes ? `<ul>${clashes}</ul>` : ""}
       ${found}
       <div class="buttons">

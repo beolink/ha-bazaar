@@ -9,9 +9,9 @@ Over a thousand repositories wait in the review queue of [hacs/default](https://
 It has two parts:
 
 - **The catalog** at [beolink.github.io/ha-bazaar](https://beolink.github.io/ha-bazaar/), rebuilt every night. Each repository is held up against the checks HACS runs before it lists one, and the Python of each integration gets a first read for things worth a second look.
-- **The Bazaar integration**, which puts the catalog in Home Assistant's sidebar, shows what HACS already has, and adds a repository to HACS with one click.
+- **The Bazaar integration**, which puts the catalog in Home Assistant's sidebar, shows what the Marketplace or HACS already has, and adds a repository there with one click.
 
-Either way, HACS does the installing. A repository added from Bazaar is an ordinary custom repository in HACS, which downloads it, offers its updates and removes it like any other. Bazaar never writes a file in your configuration.
+Either way, the store does the installing: the Marketplace that is built into Home Assistant since 2026.11, or HACS on older versions. A repository added from Bazaar is an ordinary custom repository there, which downloads it, offers its updates and removes it like any other. Bazaar never writes a file in your configuration.
 
 ## Nothing here is reviewed
 
@@ -30,13 +30,13 @@ If something in the catalog should not be there, use **Report** on its card. Aut
 
 [![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=beolink&repository=ha-bazaar&category=integration)
 
-1. Add this repository to HACS with the button above, or in HACS under the menu, *Custom repositories*, category *Integration*.
-2. Download Bazaar in HACS and restart Home Assistant.
+1. Add this repository as a custom repository with the button above, or by hand: in the Marketplace (Home Assistant 2026.11 and later) or in HACS, under *Custom repositories*, category *Integration*.
+2. Download Bazaar there and restart Home Assistant.
 3. Add the integration under *Settings, Devices & services*. The only setting is the catalog's address; keep the default unless you run your own copy.
 
-**Bazaar** then appears in the sidebar for administrators. *Add to HACS* on a card shows what the checks and the code reading found, adds the repository to HACS when you confirm, and opens it in HACS for the download.
+**Bazaar** then appears in the sidebar for administrators. *Add to the Marketplace* (or *Add to HACS*) shows what the checks and the code reading found, adds the repository when you confirm, and opens its page there for the download.
 
-The integration fetches the catalog every six hours and keeps a copy for the next start, so the panel works without a network. It needs HACS to add repositories, and HACS 2.0 or later.
+The integration fetches the catalog every six hours and keeps a copy for the next start, so the panel works without a network. To add repositories it needs the Marketplace, with its warning accepted and a GitHub account connected, or HACS 2.0 or later. The Marketplace does not install Python scripts or AppDaemon apps, so those are listed but cannot be added there.
 
 What it sends: one request for the catalog to the address in its settings. The panel loads repository icons from GitHub and Home Assistant's brands site.
 

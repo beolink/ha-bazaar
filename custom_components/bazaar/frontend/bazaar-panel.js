@@ -1,40 +1,69 @@
 // <bazaar-panel>: the sidebar page. Fetches the catalog from the integration,
-// asks HACS what it already tracks, and adds a repository to HACS over HACS's
-// own websocket commands, then opens it in HACS for the download.
+// asks the store what it already tracks, and adds a repository over the store's
+// own websocket commands, then opens it there for the download. The store is
+// the Marketplace built into Home Assistant since 2026.11, or HACS before it.
 
 const version = new URL(import.meta.url).search;
 await import(new URL(`./bazaar-catalog.js${version}`, import.meta.url).href);
+
+// The Marketplace first: an upgraded Home Assistant has handed HACS's entry to it.
+const STORES = {
+  marketplace: {
+    list: "marketplace/repositories/list",
+    add: "marketplace/repositories/add",
+    page: "/marketplace/repository/",
+  },
+  hacs: {
+    list: "hacs/repositories/list",
+    add: "hacs/repositories/add",
+    page: "/hacs/repository/",
+  },
+};
 
 const TEXT = {
   en: {
     refresh: "Fetch the catalog again",
     built: (when, fetched) => `Catalog built ${when}, fetched ${fetched}.`,
     counts: (c) => `${c.total ?? 0} repositories, ${c.pending ?? 0} of them in the HACS queue.`,
-    notice:
-      "Nothing here has been reviewed by HACS. Adding a repository makes it a custom repository in HACS, which then installs and updates it.",
-    no_hacs: "HACS is not set up in this Home Assistant. Bazaar adds repositories to HACS, so set up HACS first.",
+    stores: { hacs: "HACS", marketplace: "the Marketplace" },
+    notice: (store) =>
+      `Nothing here has been reviewed by HACS. Adding a repository makes it a custom repository in ${store}, which then installs and updates it.`,
+    no_store:
+      "Neither the Marketplace nor HACS is running in this Home Assistant. Bazaar adds repositories to one of them, so set it up first.",
+    store_down: (store, msg) => `Bazaar cannot reach ${store}: ${msg}`,
+    mp_warning: "Open the Marketplace and accept its warning before adding a repository.",
+    mp_github: "Connect a GitHub account in the Marketplace before adding a repository.",
+    open_store: "Open the Marketplace",
     load_failed: (msg) => `The catalog could not be loaded: ${msg}`,
     stale: (msg) => `The latest fetch failed, so this is an older copy: ${msg}`,
-    added: (name) => `${name} is in HACS now. Download it there.`,
-    add_failed: (name) =>
-      `HACS did not add ${name}. HACS's own log in Settings, System, Logs says why.`,
+    added: (name, store) => `${name} is in ${store} now. Download it there.`,
+    add_failed: (name, store) => `${store} did not add ${name}. Its log in Settings, System, Logs says why.`,
+    add_refused: (name, msg) => `${name} was not added: ${msg}`,
     loading: "Loading the catalog…",
   },
   sv: {
     refresh: "Hämta katalogen igen",
     built: (when, fetched) => `Katalogen byggd ${when}, hämtad ${fetched}.`,
     counts: (c) => `${c.total ?? 0} repon, varav ${c.pending ?? 0} i HACS-kön.`,
-    notice:
-      "Inget här är granskat av HACS. Ett repo som läggs till blir ett anpassat repo i HACS, som sedan installerar och uppdaterar det.",
-    no_hacs: "HACS är inte uppsatt i den här Home Assistant. Bazaar lägger till repon i HACS, så sätt upp HACS först.",
+    stores: { hacs: "HACS", marketplace: "Marknadsplatsen" },
+    notice: (store) =>
+      `Inget här är granskat av HACS. Ett repo som läggs till blir ett anpassat repo i ${store}, som sedan installerar och uppdaterar det.`,
+    no_store:
+      "Varken Marknadsplatsen eller HACS är igång i den här Home Assistant. Bazaar lägger till repon i någon av dem, så sätt upp den först.",
+    store_down: (store, msg) => `Bazaar når inte ${store}: ${msg}`,
+    mp_warning: "Öppna Marknadsplatsen och godkänn dess varning innan du lägger till ett repo.",
+    mp_github: "Anslut ett GitHub-konto i Marknadsplatsen innan du lägger till ett repo.",
+    open_store: "Öppna Marknadsplatsen",
     load_failed: (msg) => `Katalogen gick inte att ladda: ${msg}`,
     stale: (msg) => `Senaste hämtningen misslyckades, så det här är en äldre kopia: ${msg}`,
-    added: (name) => `${name} finns nu i HACS. Ladda ner det där.`,
-    add_failed: (name) =>
-      `HACS lade inte till ${name}. HACS egen logg under Inställningar, System, Loggar säger varför.`,
+    added: (name, store) => `${name} finns nu i ${store}. Ladda ner det där.`,
+    add_failed: (name, store) => `${store} lade inte till ${name}. Loggen under Inställningar, System, Loggar säger varför.`,
+    add_refused: (name, msg) => `${name} lades inte till: ${msg}`,
     loading: "Laddar katalogen…",
   },
 };
+
+const capital = (text) => `${text.charAt(0).toUpperCase()}${text.slice(1)}`;
 
 const REFRESH = "M17.65,6.35C16.2,4.9 14.21,4 12,4A8,8 0 0,0 4,12A8,8 0 0,0 12,20C15.73,20 18.84,17.45 19.73,14H17.65C16.83,16.33 14.61,18 12,18A6,6 0 0,1 6,12A6,6 0 0,1 12,6C13.66,6 15.14,6.69 16.22,7.78L13,11H20V4L17.65,6.35Z";
 
@@ -65,6 +94,12 @@ const STYLE = `
 }
 .box svg { width: 20px; height: 20px; flex: none; fill: var(--warning-color, #ffa600); }
 .box.error svg { fill: var(--error-color, #db4437); }
+.box button {
+  font: inherit; font-size: 14px; margin-left: auto; flex: none; cursor: pointer;
+  padding: 4px 10px; border-radius: 8px;
+  border: 1px solid var(--divider-color, rgba(0, 0, 0, 0.2)); background: var(--card-background-color, #fff);
+  color: var(--primary-text-color);
+}
 .loading { color: var(--secondary-text-color); padding: 32px 0; font-size: 15px; }
 `;
 
@@ -77,7 +112,10 @@ class BazaarPanel extends HTMLElement {
     this._started = false;
     this._info = null;
     this._error = null;
-    this._hacs = true;
+    this._store = null;
+    this._storeDown = null;
+    this._marketplace = null;
+    this._known = new Map();
     this._busy = new Set();
   }
 
@@ -189,17 +227,39 @@ class BazaarPanel extends HTMLElement {
     await this._load();
   }
 
+  get _storeName() {
+    return this.t.stores[this._store || "hacs"];
+  }
+
+  // Which store answers, and what it already tracks. A store whose commands
+  // exist but fail is named with its reason rather than passed over.
   async _loadKnown() {
-    try {
-      const repos = await this._hass.callWS({ type: "hacs/repositories/list" });
-      this._hacs = true;
-      this._known = new Map(repos.map((r) => [String(r.full_name).toLowerCase(), r]));
-    } catch (err) {
-      // unknown_command: HACS is not loaded. Anything else: treat the same, as
-      // adding would fail the same way.
-      this._hacs = false;
-      this._known = new Map();
+    this._store = null;
+    this._storeDown = null;
+    this._known = new Map();
+    for (const [key, store] of Object.entries(STORES)) {
+      try {
+        const repos = await this._hass.callWS({ type: store.list });
+        this._store = key;
+        this._known = new Map(repos.map((r) => [String(r.full_name).toLowerCase(), r]));
+        break;
+      } catch (err) {
+        if (err?.code === "unknown_command") continue;
+        this._store = key;
+        this._storeDown = err?.message || String(err?.code || err);
+        break;
+      }
     }
+    this._marketplace = null;
+    if (this._store === "marketplace" && !this._storeDown) {
+      try {
+        this._marketplace = await this._hass.callWS({ type: "marketplace/info" });
+      } catch {
+        // Adding still answers with its own reason.
+      }
+    }
+    this._catalogEl.store = this._store || "hacs";
+    this._catalogEl.addable = Array.isArray(this._marketplace?.categories) ? this._marketplace.categories : null;
     this._catalogEl.known = this._known;
   }
 
@@ -222,13 +282,19 @@ class BazaarPanel extends HTMLElement {
       ? `<span>${esc(`${t.built(fmt(info.generated), fmt(info.fetched))} ${t.counts(counts)}`)}</span>`
       : "";
     const boxes = [];
-    const box = (text, error = false) =>
-      `<div class="box${error ? " error" : ""}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="${ALERT}"/></svg><span>${esc(text)}</span></div>`;
+    const box = (text, error = false, extra = "") =>
+      `<div class="box${error ? " error" : ""}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="${ALERT}"/></svg><span>${esc(text)}</span>${extra}</div>`;
+    const open = `<button type="button" data-open-store>${esc(t.open_store)}</button>`;
     if (this._error) boxes.push(box(this._error, true));
     else if (info && !info.last_update_success && info.error) boxes.push(box(t.stale(info.error), true));
-    if (!this._hacs) boxes.push(box(t.no_hacs, true));
-    boxes.push(box(t.notice));
-    this.shadowRoot.querySelector(".boxes").innerHTML = boxes.join("");
+    if (!this._store) boxes.push(box(t.no_store, true));
+    else if (this._storeDown) boxes.push(box(t.store_down(this._storeName, this._storeDown), true));
+    else if (this._marketplace?.warning_accepted === false) boxes.push(box(t.mp_warning, true, open));
+    else if (this._marketplace?.github_connected === false) boxes.push(box(t.mp_github, true, open));
+    boxes.push(box(t.notice(this._storeName)));
+    const holder = this.shadowRoot.querySelector(".boxes");
+    holder.innerHTML = boxes.join("");
+    holder.querySelector("[data-open-store]")?.addEventListener("click", () => this._navigate("/marketplace"));
   }
 
   _toast(message) {
@@ -243,37 +309,44 @@ class BazaarPanel extends HTMLElement {
   }
 
   _open(id) {
-    if (id !== undefined && id !== null) this._navigate(`/hacs/repository/${id}`);
+    if (id !== undefined && id !== null) this._navigate(`${STORES[this._store || "hacs"].page}${encodeURIComponent(id)}`);
   }
 
   async _add(entry) {
+    const t = this.t;
     const key = entry.repo.toLowerCase();
-    if (!this._hacs) {
-      this._toast(this.t.no_hacs);
+    if (!this._store || this._storeDown) {
+      this._toast(this._store ? t.store_down(this._storeName, this._storeDown) : t.no_store);
       return;
     }
+    const store = this._storeName;
     this._busy.add(key);
     this._catalogEl.busy = this._busy;
     let found;
+    let refused;
     try {
-      await this._hass.callWS({ type: "hacs/repositories/add", repository: entry.repo, category: entry.category });
-      // HACS answers before an error reaches its log, and lists a repository
-      // only once it has been fetched, so look a few times.
+      await this._hass.callWS({ type: STORES[this._store].add, repository: entry.repo, category: entry.category });
+      // HACS answers before an error reaches its log, and both list a
+      // repository only once it has been fetched, so look a few times.
       for (let attempt = 0; attempt < 5 && !found; attempt++) {
         await this._loadKnown();
         found = this._known.get(key);
         if (!found) await new Promise((resolve) => setTimeout(resolve, 1000));
       }
     } catch (err) {
-      found = undefined;
+      // The Marketplace says why, in the language of Home Assistant.
+      refused = err?.message;
     }
     this._busy.delete(key);
     this._catalogEl.busy = this._busy;
+    this._renderInfo();
     if (found) {
-      this._toast(this.t.added(entry.name));
+      this._toast(t.added(entry.name, store));
       this._open(found.id);
+    } else if (refused) {
+      this._toast(t.add_refused(entry.name, refused));
     } else {
-      this._toast(this.t.add_failed(entry.name));
+      this._toast(t.add_failed(entry.name, capital(store)));
     }
   }
 }

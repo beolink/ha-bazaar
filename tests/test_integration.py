@@ -105,7 +105,7 @@ async def test_websocket_info_and_refresh(
     assert msg["result"]["generated"] == "2026-10-27T03:00:00Z"
     assert msg["result"]["counts"]["total"] == 2
     assert msg["result"]["last_update_success"] is True
-    assert msg["result"]["hacs"] is False
+    assert msg["result"]["store"] is None
 
     aioclient_mock.clear_requests()
     aioclient_mock.get(URL, exc=aiohttp.ClientError())
@@ -249,3 +249,16 @@ async def test_options_switch_address_and_back(hass, aioclient_mock: AiohttpClie
     await hass.async_block_till_done()
     assert entry.options == {CONF_CATALOG_URL: ""}
     assert entry.runtime_data.url == URL
+
+
+async def test_info_names_the_store(hass, aioclient_mock: AiohttpClientMocker, catalog_bytes, hass_ws_client):
+    aioclient_mock.get(URL, content=catalog_bytes)
+    await _setup(hass)
+    ws = await hass_ws_client(hass)
+    hass.config.components.add("hacs")
+    await ws.send_json({"id": 1, "type": "bazaar/info"})
+    assert (await ws.receive_json())["result"]["store"] == "hacs"
+    # Should both be loaded, the Marketplace is the one that adds.
+    hass.config.components.add("marketplace")
+    await ws.send_json({"id": 2, "type": "bazaar/info"})
+    assert (await ws.receive_json())["result"]["store"] == "marketplace"
