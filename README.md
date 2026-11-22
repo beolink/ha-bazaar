@@ -24,6 +24,8 @@ Bazaar tries to make that risk visible rather than hide it:
 - **A first read of the code.** Every integration's Python is read through its syntax tree, so a method that happens to be called `exec`, or a path named in a comment, does not count. It looks for running text as code (`exec`, `eval`), decoding data and running it, reading Home Assistant's own login store, starting programs, installing packages at runtime, creating users or tokens, and long encoded strings. Each finding links to the file and line. A flag is a reason to read the code, not a verdict: plenty of honest integrations start a program.
 - **Left out entirely.** Repositories HACS already lists (also under a new name after a rename), repositories HACS has removed or blacklisted, archived repositories, forks that were never submitted, and unchanged copies of the `integration_blueprint` template.
 
+GitHub's code search finds the repositories that carry a `hacs.json`, but it can leave a new one out for weeks. A repository it misses can be added to `include.json`: it is then looked at every night like the rest, and the same checks decide whether it is listed.
+
 If something in the catalog should not be there, use **Report** on its card. Authors who would rather not be listed can ask the same way, or open a pull request that adds the repository to `denylist.json`; it is left out from the next night on.
 
 ## The integration

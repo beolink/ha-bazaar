@@ -48,15 +48,32 @@ TARBALL = "https://codeload.github.com/{repo}/tar.gz/{ref}"
 TARBALL_LIMIT = 30_000_000
 RELEASE_ASSET = "https://github.com/{repo}/releases/download/{tag}/{filename}"
 DENYLIST = Path(__file__).resolve().parent.parent / "denylist.json"
+INCLUDE = Path(__file__).resolve().parent.parent / "include.json"
+
+
+def _load_names(path: Path) -> dict[str, str]:
+    """A list of names or {"repository": ..., "reason": ...}, lowercased name to name."""
+    try:
+        entries = json.loads(path.read_text())
+    except FileNotFoundError:
+        return {}
+    names = (e["repository"] if isinstance(e, dict) else e for e in entries)
+    return {norm(n): n.strip().strip("/") for n in names}
 
 
 def load_denylist(path: Path = DENYLIST) -> set[str]:
     """Repositories left out on request, mostly by their own authors."""
-    try:
-        entries = json.loads(path.read_text())
-    except FileNotFoundError:
-        return set()
-    return {norm(e["repository"] if isinstance(e, dict) else e) for e in entries}
+    return set(_load_names(path))
+
+
+def load_include(path: Path = INCLUDE) -> dict[str, str]:
+    """Repositories code search misses, looked at every night beside the ones it finds.
+
+    GitHub's index can leave a new repository out for weeks, or for good. Being
+    listed only makes a repository a candidate: the same checks decide whether
+    it reaches the catalog, and the denylist still wins.
+    """
+    return _load_names(path)
 
 
 def _load_json(source: str | None) -> Any:
@@ -340,6 +357,8 @@ def collect(args: argparse.Namespace) -> tuple[dict[str, Any], dict[str, Any]]:
                     candidates[norm(name)] = name
                     carried += 1
             _LOGGER.warning("%d candidates carried over from the previous catalog", carried)
+    for low, name in load_include().items():
+        candidates.setdefault(low, name)
     denied = load_denylist()
     names = [
         n for low, n in candidates.items() if low not in default and low not in removed and low not in denied
@@ -474,7 +493,7 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument("--cache-out", help="where the scan cache goes; next to --out by default")
     parser.add_argument("--limit", type=int, help="look at only this many candidates (queue first)")
-    parser.add_argument("--no-search", action="store_true", help="only the HACS queue, no code search")
+    parser.add_argument("--no-search", action="store_true", help="only the HACS queue and include.json, no code search")
     parser.add_argument("--no-scan", action="store_true", help="skip downloading and scanning source")
     parser.add_argument("--workers", type=int, default=8)
     parser.add_argument(

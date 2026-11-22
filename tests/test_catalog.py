@@ -199,6 +199,18 @@ def test_denylist(tmp_path):
     assert load_denylist(tmp_path / "missing.json") == set()
 
 
+def test_include(tmp_path):
+    from catalog.collect import INCLUDE, load_include
+
+    path = tmp_path / "include.json"
+    path.write_text('[{"repository": "Some/Thing/", "reason": "code search misses it"}, "other/repo"]')
+    assert load_include(path) == {"some/thing": "Some/Thing", "other/repo": "other/repo"}
+    assert load_include(tmp_path / "missing.json") == {}
+    # The shipped list parses and names each repository once.
+    shipped = json.loads(INCLUDE.read_text())
+    assert len(load_include()) == len(shipped)
+
+
 def test_scan_is_linear_and_reads_only_newline_lines():
     import time
 
