@@ -1,6 +1,6 @@
 # Roadmap för Bazaar, november 2026
 
-Bazaar står på 0.1.4 (release 2026-11-10) och ligger på alla fem hus. Katalogen bygger varje natt och hade den 26 november 16 205 repon: 14 038 integrationer, 2 000 dashboardkort, 108 teman och 59 övriga, varav 924 med en öppen PR i hacs/default. Alla integrationer utom 217 (nedladdning eller arkiv föll) har fått sin kod läst; läsningen gav 54 höga, 670 medel och 544 låga flaggor. Filen är 9,0 MB okomprimerad. Integrationen talar med Marknadsplatsen i Home Assistant 2026.11 och med HACS före det, och lägger till repon utan att själv installera något. Testerna är 15 för integrationen och 30 för katalogen, alla gröna.
+Bazaar stod på 0.1.4 (release 2026-11-10, på alla fem hus) när roadmapen skrevs; 0.1.5 tar de första sju posterna, märkta nedan. Katalogen bygger varje natt och hade den 26 november 16 205 repon: 14 038 integrationer, 2 000 dashboardkort, 108 teman och 59 övriga, varav 924 med en öppen PR i hacs/default. Alla integrationer utom 217 (nedladdning eller arkiv föll) har fått sin kod läst; läsningen gav 54 höga, 670 medel och 544 låga flaggor. Filen är 9,0 MB okomprimerad. Integrationen talar med Marknadsplatsen i Home Assistant 2026.11 och med HACS före det, och lägger till repon utan att själv installera något. Testerna är 15 för integrationen och 27 för katalogen, alla gröna.
 
 Två saker ramar in roadmapen. hacs/default stängde Bazaars PR (#14826) den 24 november av principskäl: en katalog över ogranskade repon ska inte stå i den granskade listan, hur noggrann koden än är. Bazaar fortsätter alltså som anpassat repo, och spridningen måste gå andra vägar. Och HA 2026.11 gjorde HACS till kärnkomponenten `marketplace`, vars websocket-API nu är det Bazaar ska bygga på; `dev` (2027.1) har samma kommandon och fält som 2026.11.3 plus två för kritiska repon, så API:et är stabilt för stunden.
 
@@ -9,7 +9,7 @@ Så togs roadmapen fram: en läsare gick igenom all kod (5 300 rader Python och 
 | Fas | Poster | Vad fasen ger |
 |---|---|---|
 | Fas 0: beslut och prov | 3 | Ägaren väljer väg, och tilläggsflödet är provat i ett riktigt hus. |
-| Fas 1: rätt och tryggt | 10 | Inget skrivs i onödan, panelen laddar inte om 9 MB varje gång, och testerna prövar det Bazaar faktiskt talar med. |
+| Fas 1: rätt och tryggt | 12 | Inget skrivs i onödan, panelen laddar inte om 9 MB varje gång, och testerna prövar det Bazaar faktiskt talar med. |
 | Fas 2: Marknadsplatsen på riktigt | 5 | Panelen lyssnar i stället för att polla, visar vad butiken vet och förstår dess felkoder. |
 | Fas 3: katalogen säger mer | 7 | Stängda PR:ar, köplats, utkast och vart koden ringer syns; fler repon hittas. |
 | Fas 4: lätt och snabb | 2 | Katalogen går att använda på en telefon. |
@@ -26,6 +26,8 @@ Flödet "Lägg till i Marknadsplatsen" har bara provats mot en falsk `hass` (pub
 
 Belägg: `custom_components/bazaar/frontend/bazaar-panel.js:315` till `:351` (`_add`), `:290` till `:294` (rutorna).
 
+**Provat 2026-11-26 i VSH (Home Assistant 2026.11.3, Bazaar 0.1.4).** beolink/HA-Nibe-Easyconf lades till från panelen och togs bort igen; inget installerades. Sökning, dialog, tillägg, toast och hopp till Marknadsplatsens sida fungerade. `marketplace/repositories/add` tog 1,7 s, repot fanns i listan vid första frågan (inga omförsök behövdes), och sidan öppnades efter 2,1 s. Raden visade "Tillagd" efteråt och "Lägg till" igen efter borttagningen (`marketplace/repositories/remove`). De två spärrarna (varning ej godkänd, GitHub ej anslutet) provades inte, eftersom VSH har båda uppfyllda och ingen av dem ska dras tillbaka för ett prov. Det provet gav i övrigt: R12, tilläggen i M2 och M4, och att Marknadsplatsens bakåtpil leder till dess egen lista, inte tillbaka till Bazaar.
+
 ### P2. Svar till hacs/default och väg framåt (beslut)
 
 PR #14826 stängdes med motiveringen att den granskade listan inte ska peka på en katalog över ogranskade repon. Ägaren avgör om och hur det besvaras, och om Bazaar ska föreslås som katalogkälla i Marknadsplatsens diskussionskategori (se F1). Svaret styr S3.
@@ -40,11 +42,15 @@ Belägg: `bazaar-panel.js:10` till `:21`, `tests/stub_hacs/`.
 
 ### R1. Skriv inte om 9 MB var sjätte timme (S)
 
+**Klart i 0.1.5: vid 304 skrivs bara metafilen, och katalogen bara om filen saknas.**
+
 När katalogservern svarar 304 Not Modified bygger koordinatorn en ny `Catalog` av den gamla och sparar den ändå: `_async_save_cache` skriver `raw` (9 MB) och metafilen till `.storage` vid varje uppdatering, också när inget ändrats. På ett SD-kort är det fyra onödiga skrivningar om dygnet i varje hus. Spara bara metafilen (tiden för hämtningen) när svaret var 304.
 
 Belägg: `custom_components/bazaar/coordinator.py:174` till `:185`.
 
 ### R2. Katalogvyn med ETag (S)
+
+**Klart i 0.1.5: ETag ur katalogens innehåll, `private, no-cache`, 304 på `If-None-Match`. Att webbläsaren verkligen frågar om med ETag kontrolleras i ett hus vid utrullningen.**
 
 Panelen hämtar `/api/bazaar/catalog` med `Cache-Control: no-store`, så varje öppning av panelen laddar hela katalogen. Sätt `ETag` till katalogens egen ETag eller `generated`, svara 304 på `If-None-Match`, och låt webbläsaren cacha med `private, max-age=0, must-revalidate`. Hämtningen efter "Hämta katalogen igen" byter ETag av sig själv.
 
@@ -64,11 +70,15 @@ Belägg: `.github/workflows/validate.yaml:7` till `:8`, `:31` till `:44`.
 
 ### R5. Släpp bara in ikoner från kända värdar (S)
 
+**Klart i 0.1.5.**
+
 `normalize()` godtar vilken `https://`-adress som helst som ikon. Katalogen kan komma från en adress användaren själv angett, och då kan varje kort ladda en bild från en okänd server, med användarens IP som gåva. Katalogbygget skapar bara adresser på `raw.githubusercontent.com` och `brands.home-assistant.io`, så begränsa till dem.
 
 Belägg: `bazaar-catalog.js:469`, `catalog/collect.py:126` till `:132`.
 
 ### R6. Etiketten "report" finns inte (S)
+
+**Klart 2026-11-26: etiketten skapad i repot.**
 
 Både panelen och webbplatsen öppnar ett ärende med `labels: report`, men repot har ingen sådan etikett (bara GitHubs standarduppsättning), så GitHub släpper parametern tyst och anmälningar går inte att filtrera. Skapa etiketten, med en beskrivning av vad en anmälan är.
 
@@ -88,6 +98,8 @@ Belägg: `__init__.py:54` till `:78`, `:111`; `bazaar-panel.js:290`.
 
 ### R9. En version på ett ställe (S)
 
+**Klart i 0.1.5: `test_versions_agree`.**
+
 `VERSION` i `const.py` och `version` i `manifest.json` måste stämma överens, och panelens cache-brytare (`?v=`) läser den förra. Ett test som jämför dem räcker.
 
 Belägg: `custom_components/bazaar/const.py:7`, `manifest.json:20`, `__init__.py:74`.
@@ -104,6 +116,14 @@ Går `CATALOG_TOKEN` ut faller jobbet tillbaka på arbetsflödets egen token, ko
 
 Belägg: `.github/workflows/catalog.yml:9` till `:12`, `:56` till `:60`; `catalog/collect.py:344` till `:360`.
 
+### R12. Toasten säger "Ladda ner", knappen heter "Installera" (S)
+
+**Klart i 0.1.5.**
+
+Efter ett tillägg säger Bazaar "finns nu i Marknadsplatsen. Ladda ner det där." Knappen användaren sedan möter i Marknadsplatsen heter "Installera" (engelska "Install"). HACS sa "Download", så texten ska följa butiken: "Installera det där" för Marknadsplatsen, "Ladda ner det där" för HACS.
+
+Belägg: `bazaar-panel.js:39`, `:59`; provet 2026-11-26 (P1).
+
 ## Fas 2: Marknadsplatsen på riktigt
 
 ### M1. Lyssna i stället för att polla (S)
@@ -116,7 +136,9 @@ Belägg: `bazaar-panel.js:329` till `:335`; `homeassistant/components/marketplac
 
 `repositories/list` ger per repo `installed`, `installed_version`, `available_version`, `pending_upgrade`, `new`, `status` och `can_install`. Panelen använder bara `id` och `installed`. Visa "Uppdatering finns" med version, "Ny" tills användaren öppnat det, och gråa ut knappen när `can_install` är falskt.
 
-Belägg: `bazaar-panel.js:244`, `bazaar-catalog.js:817` till `:820`; `websocket/repositories.py:28` till `:59`.
+Fältet `custom` säger dessutom om repot står i standardkatalogen. Ett repo som HACS just godkänt ligger kvar i Bazaars katalog till nästa natt: beolink/ha-intellipool slogs ihop 2026-11-26 kl. 12.04 UTC och visades samma kväll fortfarande som "I HACS-kön" i panelen, fast butiken redan listade det med `custom: false`. Visa sådana som "Finns nu i Marknadsplatsen" i stället för att erbjuda tillägg.
+
+Belägg: `bazaar-panel.js:244`, `bazaar-catalog.js:817` till `:820`; `websocket/repositories.py:28` till `:59`; provet 2026-11-26 (P1).
 
 ### M3. Fråga butiken om kategorin före tillägg (M)
 
@@ -128,7 +150,9 @@ Belägg: `catalog/analyze.py:53` till `:101`; `websocket/repositories.py:152` ti
 
 Marknadsplatsen svarar med kod och översatt text. Panelen visar texten, vilket är rätt, men kan göra mer: vid `repository_exists` uppdatera `known` och öppna repots sida (någon annan lade till det), vid `warning_not_accepted` eller `github_not_connected` gå till `/marketplace` i stället för en toast. `marketplace/warning/accept` finns men ska aldrig anropas av Bazaar: varningen är användarens att läsa.
 
-Belägg: `bazaar-panel.js:336` till `:350`; `websocket/decorators.py:15` till `:19`; `websocket/repositories.py:257` till `:265`.
+Texten kommer på serverns språk, inte användarens: VSH svarade "beolink/ha-nibe-easyconf is already in the Marketplace" till en svensk panel. Felet bär `translation_key` (`repository_exists`, `invalid_category` med koden `invalid_format`), så panelen kan slå upp texten på användarens språk med `hass.localize` och falla tillbaka på serverns.
+
+Belägg: `bazaar-panel.js:336` till `:350`; `websocket/decorators.py:15` till `:19`; `websocket/repositories.py:257` till `:265`; provet 2026-11-26 (P1).
 
 ### M5. Kategorier Marknadsplatsen saknar (S)
 
@@ -201,6 +225,8 @@ Belägg: `catalog/collect.py:189` till `:217` (`for_clients`), `const.py:15` (`M
 ## Fas 5: spridning och språk
 
 ### S1. Webbplatsen talar fortfarande om HACS (S)
+
+**Klart i 0.1.5, tillsammans med README:s steg 2.**
 
 "Så fungerar det" säger att "Öppna i HACS" tar dig till Home Assistant och att HACS frågar, och knappen heter "Lägg till Bazaar i HACS", på båda språken. Panelen byttes till Marknadsplatsen i 0.1.4, men inte webbplatsen. Skriv om punkt 4 och panelrutan: Marknadsplatsen i 2026.11 och senare, HACS före det. My-länken fungerar via frontendens omdirigering.
 
