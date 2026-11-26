@@ -150,10 +150,12 @@ class CatalogView(HomeAssistantView):
         coordinator = _coordinator(hass)
         if coordinator is None or coordinator.data is None:
             return web.Response(status=503, text="The catalog has not been fetched yet")
-        response = web.Response(
-            body=coordinator.data.raw,
-            content_type="application/json",
-            headers={"Cache-Control": "no-store"},
-        )
+        # The browser may keep its copy but asks every time, so opening the
+        # panel costs a few bytes until the catalog itself has changed.
+        etag = f'"{coordinator.data.digest}"'
+        headers = {"Cache-Control": "private, no-cache", "ETag": etag, "Vary": "Accept-Encoding"}
+        if etag in (tag.strip().removeprefix("W/") for tag in request.headers.get("If-None-Match", "").split(",")):
+            return web.Response(status=304, headers=headers)
+        response = web.Response(body=coordinator.data.raw, content_type="application/json", headers=headers)
         response.enable_compression()
         return response

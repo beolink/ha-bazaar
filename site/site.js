@@ -22,11 +22,11 @@ const TEXT = {
     how_3:
       "Pythonkoden i varje integration läses som kod, inte som text, efter sådant som är värt en andra titt, som att köra text som kod eller starta program. En flagga är ett skäl att läsa, inte en dom.",
     how_4:
-      "Öppna i HACS tar dig till din egen Home Assistant via My Home Assistant. HACS frågar om repot ska läggas till, och sedan installerar och uppdaterar HACS det som vilket annat som helst.",
+      "Öppna i Home Assistant tar dig till din egen Home Assistant via My Home Assistant. Marknadsplatsen, som är inbyggd i Home Assistant sedan 2026.11, eller HACS i äldre versioner, frågar om repot ska läggas till och installerar och uppdaterar det sedan som vilket annat som helst.",
     panel_title: "Bazaar i Home Assistant",
     panel_body:
-      "Följeintegrationen lägger katalogen i Home Assistants sidomeny, visar vad HACS redan har och lägger till ett repo i HACS med ett klick. Installera den via HACS som vilket anpassat repo som helst.",
-    panel_button: "Lägg till Bazaar i HACS",
+      "Följeintegrationen lägger katalogen i Home Assistants sidomeny, visar vad Marknadsplatsen eller HACS redan har och lägger till ett repo där med ett klick. Installera den som vilket anpassat repo som helst: i Marknadsplatsen i Home Assistant 2026.11 och senare, i HACS före det.",
+    panel_button: "Lägg till Bazaar i Home Assistant",
     footer: "Inte knutet till HACS eller Home Assistant.",
     source: "Källkod och anmälningar",
   },

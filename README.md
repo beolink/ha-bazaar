@@ -33,12 +33,12 @@ If something in the catalog should not be there, use **Report** on its card. Aut
 [![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=beolink&repository=ha-bazaar&category=integration)
 
 1. Add this repository as a custom repository with the button above, or by hand: in the Marketplace (Home Assistant 2026.11 and later) or in HACS, under *Custom repositories*, category *Integration*.
-2. Download Bazaar there and restart Home Assistant.
+2. Install Bazaar there (*Download* in HACS) and restart Home Assistant.
 3. Add the integration under *Settings, Devices & services*. The only setting is the catalog's address; keep the default unless you run your own copy.
 
-**Bazaar** then appears in the sidebar for administrators. *Add to the Marketplace* (or *Add to HACS*) shows what the checks and the code reading found, adds the repository when you confirm, and opens its page there for the download.
+**Bazaar** then appears in the sidebar for administrators. *Add to the Marketplace* (or *Add to HACS*) shows what the checks and the code reading found, adds the repository when you confirm, and opens its page there, where you install it.
 
-The integration fetches the catalog every six hours and keeps a copy for the next start, so the panel works without a network. To add repositories it needs the Marketplace, with its warning accepted and a GitHub account connected, or HACS 2.0 or later. The Marketplace does not install Python scripts or AppDaemon apps, so those are listed but cannot be added there.
+The integration looks for a new catalog every six hours and keeps a copy for the next start, so the panel works without a network. An unchanged catalog is neither downloaded nor written again. To add repositories it needs the Marketplace, with its warning accepted and a GitHub account connected, or HACS 2.0 or later. The Marketplace does not install Python scripts or AppDaemon apps, so those are listed but cannot be added there.
 
 What it sends: one request for the catalog to the address in its settings. The panel loads repository icons from GitHub and Home Assistant's brands site.
 

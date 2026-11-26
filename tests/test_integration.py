@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from http import HTTPStatus
 import json
+import os
+from pathlib import Path
 
 import aiohttp
 from pytest_homeassistant_custom_component.common import MockConfigEntry
@@ -15,6 +17,7 @@ from custom_components.bazaar.const import (
     DEFAULT_CATALOG_URL,
     DOMAIN,
     PANEL_URL_PATH,
+    VERSION,
 )
 from homeassistant import config_entries
 from homeassistant.config_entries import ConfigEntryState
@@ -162,6 +165,66 @@ async def test_not_modified_keeps_the_catalog(hass, aioclient_mock: AiohttpClien
     assert aioclient_mock.mock_calls[-1][3] == {"If-None-Match": '"v1"'}
 
 
+async def test_not_modified_leaves_the_cache_file_alone(
+    hass, aioclient_mock: AiohttpClientMocker, catalog_bytes, freezer
+):
+    aioclient_mock.get(URL, content=catalog_bytes, headers={"ETag": '"v1"'})
+    entry = await _setup(hass)
+    cache = Path(hass.config.path(".storage", CACHE_FILENAME))
+    meta = cache.with_name(f"{CACHE_FILENAME}.meta")
+    os.utime(cache, (1_000_000_000, 1_000_000_000))
+    fetched = json.loads(meta.read_text())["fetched"]
+
+    aioclient_mock.clear_requests()
+    aioclient_mock.get(URL, status=304)
+    freezer.tick(3600)
+    await entry.runtime_data.async_refresh()
+    # The megabytes stay as they were; only the time of the last look is noted.
+    assert cache.stat().st_mtime == 1_000_000_000
+    assert json.loads(meta.read_text())["fetched"] != fetched
+    assert json.loads(meta.read_text())["etag"] == '"v1"'
+
+    # A cache that has gone is written again, changed catalog or not.
+    cache.unlink()
+    await entry.runtime_data.async_refresh()
+    assert cache.read_bytes() == catalog_bytes
+
+
+async def test_catalog_api_answers_not_modified(
+    hass, aioclient_mock: AiohttpClientMocker, catalog_bytes, hass_client
+):
+    aioclient_mock.get(URL, content=catalog_bytes)
+    entry = await _setup(hass)
+    client = await hass_client()
+    response = await client.get("/api/bazaar/catalog")
+    etag = response.headers["ETag"]
+    assert response.headers["Cache-Control"] == "private, no-cache"
+
+    again = await client.get("/api/bazaar/catalog", headers={"If-None-Match": etag})
+    assert again.status == HTTPStatus.NOT_MODIFIED
+    assert await again.read() == b""
+    assert again.headers["ETag"] == etag
+    # A proxy that compresses may hand the tag back as a weak one.
+    weak = await client.get("/api/bazaar/catalog", headers={"If-None-Match": f'"other", W/{etag}'})
+    assert weak.status == HTTPStatus.NOT_MODIFIED
+
+    # Another catalog is another tag, and the old one no longer matches.
+    changed = json.dumps({**json.loads(catalog_bytes), "generated": "2026-10-28T03:00:00Z"}).encode()
+    aioclient_mock.clear_requests()
+    aioclient_mock.get(URL, content=changed)
+    await entry.runtime_data.async_refresh()
+    fresh = await client.get("/api/bazaar/catalog", headers={"If-None-Match": etag})
+    assert fresh.status == HTTPStatus.OK
+    assert fresh.headers["ETag"] != etag
+    assert json.loads(await fresh.read())["generated"] == "2026-10-28T03:00:00Z"
+
+
+def test_versions_agree():
+    """The panel's cache-buster reads const.py, the store reads manifest.json."""
+    manifest = Path(__file__).parent.parent / "custom_components" / "bazaar" / "manifest.json"
+    assert json.loads(manifest.read_text())["version"] == VERSION
+
+
 async def test_no_network_and_no_cache_retries(hass, aioclient_mock: AiohttpClientMocker):
     aioclient_mock.get(URL, exc=aiohttp.ClientError())
     entry = await _setup(hass)
@@ -174,8 +237,6 @@ async def test_removing_the_entry_removes_the_cache(hass, aioclient_mock, catalo
     cache = hass.config.path(".storage", CACHE_FILENAME)
     assert await hass.config_entries.async_remove(entry.entry_id)
     await hass.async_block_till_done()
-    import os
-
     assert not os.path.exists(cache)
 
 

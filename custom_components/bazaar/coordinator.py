@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 import asyncio
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime
+import hashlib
 import json
 import logging
 from pathlib import Path
@@ -45,6 +46,8 @@ class Catalog:
     fetched: datetime
     source: str
     etag: str | None = None
+    # Names these bytes for the panel's own cache, whatever the source's ETag looks like.
+    digest: str = ""
 
 
 def parse_catalog(raw: bytes) -> dict[str, Any]:
@@ -120,7 +123,7 @@ class CatalogCoordinator(DataUpdateCoordinator[Catalog]):
         generated = data.get("generated")
         if not isinstance(generated, str) or dt_util.parse_datetime(generated) is None:
             generated = None
-        return Catalog(raw, generated, counts, fetched, self.url, etag)
+        return Catalog(raw, generated, counts, fetched, self.url, etag, hashlib.sha256(raw).hexdigest()[:20])
 
     async def async_load_cache(self) -> Catalog | None:
         """Last run's catalog, if one was saved and came from the same URL."""
@@ -140,11 +143,20 @@ class CatalogCoordinator(DataUpdateCoordinator[Catalog]):
 
         return await self.hass.async_add_executor_job(load)
 
-    async def _async_save_cache(self, catalog: Catalog) -> None:
+    async def _async_save_cache(self, catalog: Catalog, body: bool = True) -> None:
+        """Keep the catalog for the next start; without `body`, only when it was last fetched.
+
+        The catalog is megabytes and an unchanged one comes back several times
+        a day, so it is written only when it is new or the file has gone.
+        """
+
         def save() -> None:
             meta = {"source": catalog.source, "fetched": catalog.fetched.isoformat(), "etag": catalog.etag}
             self._cache.parent.mkdir(parents=True, exist_ok=True)
-            for path, content in ((self._cache, catalog.raw), (self._meta, json.dumps(meta).encode())):
+            files = [(self._meta, json.dumps(meta).encode())]
+            if body or not self._cache.exists():
+                files.insert(0, (self._cache, catalog.raw))
+            for path, content in files:
                 tmp = path.with_suffix(".tmp")
                 tmp.write_bytes(content)
                 tmp.replace(path)
@@ -171,15 +183,16 @@ class CatalogCoordinator(DataUpdateCoordinator[Catalog]):
         except InvalidCatalog as err:
             raise UpdateFailed(f"The catalog at {self.url} is not usable: {err}") from err
         now = dt_util.utcnow()
-        if result is None and current:
-            catalog = Catalog(current.raw, current.generated, current.counts, now, current.source, current.etag)
-        else:
-            if result is None:
+        if result is None:
+            if not current:
                 raise UpdateFailed("The server answered Not Modified without a catalog to keep")
-            raw, etag = result
-            try:
-                catalog = await self.hass.async_add_executor_job(self._build, raw, etag, now)
-            except InvalidCatalog as err:
-                raise UpdateFailed(f"The catalog at {self.url} is not usable: {err}") from err
+            catalog = replace(current, fetched=now)
+            await self._async_save_cache(catalog, body=False)
+            return catalog
+        raw, etag = result
+        try:
+            catalog = await self.hass.async_add_executor_job(self._build, raw, etag, now)
+        except InvalidCatalog as err:
+            raise UpdateFailed(f"The catalog at {self.url} is not usable: {err}") from err
         await self._async_save_cache(catalog)
         return catalog

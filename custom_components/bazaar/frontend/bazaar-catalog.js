@@ -444,6 +444,21 @@ dialog::backdrop { background: rgba(0, 0, 0, 0.45); }
 
 const FLAG_ICON = { high: "bad", medium: "mid", low: "low" };
 const REPO = /^[A-Za-z0-9][A-Za-z0-9-]*\/[A-Za-z0-9._-]+$/;
+// Where the catalog's icons live: the repository's own brand folder, or
+// Home Assistant's brands site. An icon anywhere else is not loaded, so a
+// catalog from another address cannot make every card call a server of its choosing.
+const ICON_HOSTS = new Set(["raw.githubusercontent.com", "brands.home-assistant.io"]);
+
+function iconUrl(value) {
+  if (typeof value !== "string") return null;
+  try {
+    const url = new URL(value);
+    const plain = url.protocol === "https:" && !url.username && !url.password && !url.port;
+    return plain && ICON_HOSTS.has(url.hostname) ? url.href : null;
+  } catch {
+    return null;
+  }
+}
 
 // The catalog is other people's text and may come from an address the user
 // chose, so every field is held to the shape this file expects before use.
@@ -466,7 +481,7 @@ function normalize(raw) {
     created: date(raw.created),
     homeassistant: str(raw.homeassistant),
     fork_of: str(raw.fork_of),
-    icon: typeof raw.icon === "string" && /^https:\/\//.test(raw.icon) ? raw.icon : null,
+    icon: iconUrl(raw.icon),
     failed: list(raw.failed),
     unknown: list(raw.unknown),
     release: raw.release && typeof raw.release === "object" ? { tag: str(raw.release.tag), date: date(raw.release.date) } : null,

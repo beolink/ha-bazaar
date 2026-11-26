@@ -1,6 +1,6 @@
 // <bazaar-panel>: the sidebar page. Fetches the catalog from the integration,
 // asks the store what it already tracks, and adds a repository over the store's
-// own websocket commands, then opens it there for the download. The store is
+// own websocket commands, then opens it there for the install. The store is
 // the Marketplace built into Home Assistant since 2026.11, or HACS before it.
 
 const version = new URL(import.meta.url).search;
@@ -36,7 +36,9 @@ const TEXT = {
     open_store: "Open the Marketplace",
     load_failed: (msg) => `The catalog could not be loaded: ${msg}`,
     stale: (msg) => `The latest fetch failed, so this is an older copy: ${msg}`,
-    added: (name, store) => `${name} is in ${store} now. Download it there.`,
+    added: (name, store, next) => `${name} is in ${store} now. ${next}`,
+    // Each store's own word for its button.
+    next: { hacs: "Download it there.", marketplace: "Install it there." },
     add_failed: (name, store) => `${store} did not add ${name}. Its log in Settings, System, Logs says why.`,
     add_refused: (name, msg) => `${name} was not added: ${msg}`,
     loading: "Loading the catalog…",
@@ -56,7 +58,8 @@ const TEXT = {
     open_store: "Öppna Marknadsplatsen",
     load_failed: (msg) => `Katalogen gick inte att ladda: ${msg}`,
     stale: (msg) => `Senaste hämtningen misslyckades, så det här är en äldre kopia: ${msg}`,
-    added: (name, store) => `${name} finns nu i ${store}. Ladda ner det där.`,
+    added: (name, store, next) => `${name} finns nu i ${store}. ${next}`,
+    next: { hacs: "Ladda ner det där.", marketplace: "Installera det där." },
     add_failed: (name, store) => `${store} lade inte till ${name}. Loggen under Inställningar, System, Loggar säger varför.`,
     add_refused: (name, msg) => `${name} lades inte till: ${msg}`,
     loading: "Laddar katalogen…",
@@ -320,6 +323,7 @@ class BazaarPanel extends HTMLElement {
       return;
     }
     const store = this._storeName;
+    const next = t.next[this._store] || t.next.hacs;
     this._busy.add(key);
     this._catalogEl.busy = this._busy;
     let found;
@@ -341,7 +345,7 @@ class BazaarPanel extends HTMLElement {
     this._catalogEl.busy = this._busy;
     this._renderInfo();
     if (found) {
-      this._toast(t.added(entry.name, store));
+      this._toast(t.added(entry.name, store, next));
       this._open(found.id);
     } else if (refused) {
       this._toast(t.add_refused(entry.name, refused));
